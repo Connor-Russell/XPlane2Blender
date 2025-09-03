@@ -1895,7 +1895,8 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         (LAYER_GROUP_ROADS,         "Roads",         "Roads"),
         (LAYER_GROUP_OBJECTS,       "Objects",       "Objects"),
         (LAYER_GROUP_LIGHT_OBJECTS, "Light Objects", "Light Objects"),
-        (LAYER_GROUP_CARS,          "Cars",          "Cars")
+        (LAYER_GROUP_CARS,          "Cars",          "Cars"),
+        (LAYER_GROUP_BLENDED, "Blended", "Blended")
     ]
 
     layer_group: bpy.props.EnumProperty(

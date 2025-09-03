@@ -90,8 +90,8 @@ undebatable alphabetical listing.
 _version_safety_off = False
 
 # Function: UpdateLayerGroupsOnVersionChange
-# This is called by the version property on update, and updates properties that are not compatible with a given version
-# My understanding is Blender SHOULD default to the first value in the enum is the prior value is invalidated, but, it doesn't. So we have this bandaid
+# This is called by the xplane.version property on update, and updates properties that are not compatible with a given version
+# My understanding is Blender SHOULD default to the first value in the enum if the prior value is invalidated, but, it doesn't. So we have this bandaid
 #
 # Properties:
 # self - The property group calling this function
@@ -643,7 +643,6 @@ class XPlaneCondition(bpy.types.PropertyGroup):
         description = "On/Off",
         default = True
     )
-
 
 # Class: XPlaneManipulatorSettings
 # A X-Plane manipulator settings

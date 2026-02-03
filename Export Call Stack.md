@@ -5,6 +5,7 @@
         - Checks existance of objs in the file with xplaneFile.get_xplane_objects()
         - Gets path
         - Calls xplaneFile.write
+            - Collects mesh with self.collectXPlaneObjects
             - validateMaterials
             - validateOptions
             

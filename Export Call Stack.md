@@ -1,0 +1,11 @@
+- EXPORT_OT_ExportXPlane
+    - xplane_file.createFilesFromBlenderRootObjects to get "xplaneFiles" from all collections and root objects
+    - For each file EXPORT_OT_ExportXPlane._writeXPlaneFile
+        - xplaneFile is the current obj to export, representing a collection, or a hierarchy of a root object
+        - Checks existance of objs in the file with xplaneFile.get_xplane_objects()
+        - Gets path
+        - Calls xplaneFile.write
+            - Collects mesh with self.collectXPlaneObjects
+            - validateMaterials
+            - validateOptions
+            

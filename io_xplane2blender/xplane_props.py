@@ -9,6 +9,8 @@ import bpy
 import io_xplane2blender
 from io_xplane2blender import xplane_config, xplane_constants, xplane_helpers
 from io_xplane2blender.xplane_constants import *
+from bpy.app.handlers import persistent # type: ignore
+from . import xplane_materials
 
 """
  #####     ##   ##  ##   ####  ####  ####  #
@@ -84,11 +86,19 @@ undebatable alphabetical listing.
 - Tip: If you've invented a new PropertyGroup, you must wrap it in a PointerProperty or use it in a CollectionProperty
 """
 
+#--------------------------------------------------
+# Helper Functions
+#--------------------------------------------------
+
+#Triggers UI redraw
+def update_ui(self, context):
+    if context != None:
+        if context.area != None:
+            context.area.tag_redraw()
 
 # Internal variable to enable and disable the ability to update the value of XPlane2Blender's properties
 # DO NOT CHANGE OUTSIDE OF safe_set_version_data!
 _version_safety_off = False
-
 
 class XPlane2BlenderVersion(bpy.types.PropertyGroup):
     """
@@ -248,7 +258,6 @@ class XPlane2BlenderVersion(bpy.types.PropertyGroup):
             self.build_number,
         )
 
-
 # fmt: off
 class XPlaneAxisDetentRange(bpy.types.PropertyGroup):
     start: bpy.props.FloatProperty(
@@ -308,7 +317,6 @@ class XPlaneCustomAttribute(bpy.types.PropertyGroup):
     )
 # fmt: on
 
-
 class ListItemCommand(bpy.types.PropertyGroup):
     """
     This is essentially a copy of xplane_commands_txt_parser.CommandInfoStruct's members
@@ -323,7 +331,6 @@ class ListItemCommand(bpy.types.PropertyGroup):
         name="Command Description For Search List",
         description="Indicates the type, shown in a column in the commands search window. Comes from a Commands definitions file",
     )
-
 
 class ListItemDataref(bpy.types.PropertyGroup):
     """
@@ -347,7 +354,6 @@ class ListItemDataref(bpy.types.PropertyGroup):
     dataref_units: bpy.props.StringProperty(name="", description="")
 
     dataref_description: bpy.props.StringProperty(name="", description="")
-
 
 class XPlaneCommandSearchWindow(bpy.types.PropertyGroup):
     # This is only set through a CommandSeachToggle's action.
@@ -405,7 +411,6 @@ class XPlaneCommandSearchWindow(bpy.types.PropertyGroup):
     command_search_list: bpy.props.CollectionProperty(type=ListItemCommand)
     command_search_list_idx: bpy.props.IntProperty(update=onclick_command)
 
-
 class XPlaneDatarefSearchWindow(bpy.types.PropertyGroup):
     # This is only set through a DatarefSeachToggle's action.
     # It should be the full path to the dataref property to change,
@@ -462,6 +467,36 @@ class XPlaneDatarefSearchWindow(bpy.types.PropertyGroup):
     dataref_search_list: bpy.props.CollectionProperty(type=ListItemDataref)
     dataref_search_list_idx: bpy.props.IntProperty(update=onclick_dataref)
 
+class XPlaneDecal(bpy.types.PropertyGroup):
+    enabled: bpy.props.BoolProperty(name="Enabled", description="Whether this decal slot is enabled", update=update_ui)# type: ignore
+    texture: bpy.props.StringProperty(name="Texture", description="The texture for the decal", default="", subtype='FILE_PATH', update=xplane_materials.operator_wrapped_update_settings)# type: ignore
+    is_normal: bpy.props.BoolProperty(name="Normal", description="Whether the decal is a normal map decal", default=False, update=update_ui)# type: ignore
+
+    projected: bpy.props.BoolProperty(name="Projected", description="Whether the decal's UVs are projected, independant of the base UVs'", update=update_ui)# type: ignore
+    tile_ratio: bpy.props.FloatProperty(name="Tile Ratio", description="The ratio of the decal's tiling to the base texture's tiling", default=1.0)# type: ignore
+    scale_x: bpy.props.FloatProperty(name="Scale X", description="The scale of the decal in the x direction", default=1.0)# type: ignore
+    scale_y: bpy.props.FloatProperty(name="Scale Y", description="The scale of the decal in the y direction", default=1.0)# type: ignore
+
+    dither_ratio: bpy.props.FloatProperty(name="Dither Ratio", description="How much the alpha of the decal modulates the alpha of the base. Probably want this at 0 in a facade...")# type: ignore
+
+    strength_constant: bpy.props.FloatProperty(name="RGB Strength Constant", description="How strong the RGB decal always is", default=1.0)# type: ignore
+    strength_modulator: bpy.props.FloatProperty(name="RGB Strength Modulator", description="How strong the effect of the keying or modulator texture is on RGB decal's application", default=0.0)# type: ignore
+
+    strength_key_red: bpy.props.FloatProperty(name="Red key for RGB Decal", description="The red key for the RGB decal key", default=0.0)# type: ignore
+    strength_key_green: bpy.props.FloatProperty(name="Green key for RGB Decal", description="The green key for the RGB decal key", default=0.0)# type: ignore
+    strength_key_blue: bpy.props.FloatProperty(name="Blue key for RGB Decal", description="The blue key for the RGB decal key", default=0.0)# type: ignore
+    strength_key_alpha: bpy.props.FloatProperty(name="Alpha key for RGB Decal", description="The alpha key for the RGB decal key", default=0.0)# type: ignore
+
+    strength2_constant: bpy.props.FloatProperty(name="Alpha Strength Constant", description="How strong the alpha decal always is", default=1.0)# type: ignore
+    strength2_modulator: bpy.props.FloatProperty(name="Alpha Strength Modulator", description="How strong the effect of the keying or modulator texture is on alpha decal's application", default=0.0)# type: ignore
+
+    strength2_key_red: bpy.props.FloatProperty(name="Red key for Alpha Decal", description="The red key for the alpha decal key", default=0.0)# type: ignore
+    strength2_key_green: bpy.props.FloatProperty(name="Green key for Alpha Decal", description="The green key for the alpha decal key", default=0.0)# type: ignore
+    strength2_key_blue: bpy.props.FloatProperty(name="Blue key for Alpha Decal", description="The blue key for the alpha decal key", default=0.0)# type: ignore
+    strength2_key_alpha: bpy.props.FloatProperty(name="Alpha key for Alpha Decal", description="The alpha key for the alpha decal key", default=0.0)# type: ignore
+
+    #Internals
+    is_ui_expanded: bpy.props.BoolProperty(name="Expanded", description="Whether the decal is expanded in the UI", default=False, update=update_ui) # type: ignore
 
 # fmt: off
 class XPlaneExportPathDirective(bpy.types.PropertyGroup):
@@ -470,6 +505,190 @@ class XPlaneExportPathDirective(bpy.types.PropertyGroup):
         description="Special Laminar Research only directive for library.txt maintenance",
     )
 
+#--------------------------------------------------
+# Object Level Properties
+#--------------------------------------------------
+
+class XPlaneFacadeMesh(bpy.types.PropertyGroup):
+    cuts: bpy.props.IntProperty(name="Segments", description="The number of segments in the mesh (used for curves. If it is a flat plane with 3 subdivisions, you have 4 segments)", default=1, min=1)   # type: ignore
+    exportable: bpy.props.BoolProperty(name="Exportable", description="Whether the object is exportable", default=True) # type: ignore
+    far_lod: bpy.props.IntProperty(name="Far LOD", description="The far LOD for the object", default=1000)  # type: ignore
+    group: bpy.props.IntProperty(name="Group", description="The group for the object. Use for layering transparency") # type: ignore
+
+#Autogen Point Properties
+
+class XPlaneAgpObject(bpy.types.PropertyGroup):
+    exportable: bpy.props.BoolProperty(name="Exportable", description="Whether the object is exportable", default=False) # type: ignore
+    type: bpy.props.EnumProperty(
+        name="Type",
+        description="The of object this is in the autogen point",
+        items=[
+            ('BASE_TILE', "Base Tile", "The base tile for the autogen point"),
+            ('ATTACHED_OBJ', "Attached Object", "An attached object to the parent tile"),
+            ('FACADE', "Facade", "A facade perimeter"),
+            ('TREE', "Tree", "A tree object randomly picked from the set layer from the .agp's forest asset"),
+            ('TREE_LINE', "Tree Line", "A tree line object randomly picked from the set layer from the .agp's forest asset"),
+            ('CROP_POLY', "Crop Polygon", "A polygon used to crop the shape of the parent tile"),
+            ('AUTO_SPLIT_OBJ', "Auto Split Object", "An empty whose children will be automatically split by material, exported as separate objects, and attached here in the .agp"),
+        ],
+        default='BASE_TILE'
+    ) # type: ignore
+
+    attached_obj_draped: bpy.props.BoolProperty(
+        name="Draped",
+        description="Whether the attached object is draped",
+        default=False
+    ) # type: ignore
+
+    attached_obj_resource: bpy.props.StringProperty(
+        name="Resource",
+        description="The resource for the attached object",
+        default=""
+    ) # type: ignore
+
+    attached_obj_show_between_low: bpy.props.IntProperty(
+        name="Show Between Low",
+        description="The lowest setting this obj will start to show at",
+        default=0,
+        min=0,
+        max=6
+    ) # type: ignore
+
+    attached_obj_show_between_high: bpy.props.IntProperty(
+        name="Show Between High",
+        description="The setting this obj will always show at",
+        default=0,
+        min=0,
+        max=6
+    ) # type: ignore
+
+    facade_resource: bpy.props.StringProperty(
+        name="Facade Resource",
+        description="The resource for the facade",
+        default=""
+    ) # type: ignore
+
+    facade_height: bpy.props.FloatProperty(
+        name="Facade Height",
+        description="The height of the facade",
+        default=10.0
+    ) # type: ignore
+
+    tree_layer: bpy.props.IntProperty(
+        name="Tree Layer",
+        description="The layer for the tree",
+        default=0
+    ) # type: ignore
+
+    autosplit_obj_name: bpy.props.StringProperty(
+        name="Autosplit Object Name",
+        description="The name of the autosplit object. If present, this will be used in the name of the autosplit objects (_PT_<name>_<material name>)",
+        default=""
+    ) # type: ignore
+
+    autosplit_do_fake_lods: bpy.props.BoolProperty(
+        name="Fake LODs",
+        description="Whether to add objects of a fixed size to all LODs of the autosplit object for consistent LOD behavior",
+        default=False
+    ) # type: ignore
+
+    autosplit_fake_lods_size: bpy.props.FloatProperty(
+        name="Fake LODs Size",
+        description="The size of the fake LODs for the autosplit object. This is the size of the bounding box of the fake LODs",
+        default=100.0,
+        min=1.0
+    ) # type: ignore
+
+    #Autosplit lod settings
+    autosplit_lod_count: bpy.props.IntProperty(name="Autosplit LOD Count", description="The number of LODs to use for autosplit objects", default=0, min=0, max=4) # type: ignore
+    autosplit_lod_1_min: bpy.props.FloatProperty(name="Autosplit LOD 1 Min Distance", description="The minimum distance for the first LOD of autosplit objects", default=0.0, min=0.0) # type: ignore
+    autosplit_lod_1_max: bpy.props.FloatProperty(name="Autosplit LOD 1 Max Distance", description="The maximum distance for the first LOD of autosplit objects", default=0.0, min=0.0) # type: ignore
+    autosplit_lod_2_min: bpy.props.FloatProperty(name="Autosplit LOD 2 Min Distance", description="The minimum distance for the second LOD of autosplit objects", default=0.0, min=0.0) # type: ignore
+    autosplit_lod_2_max: bpy.props.FloatProperty(name="Autosplit LOD 2 Max Distance", description="The maximum distance for the second LOD of autosplit objects", default=0.0, min=0.0) # type: ignore
+    autosplit_lod_3_min: bpy.props.FloatProperty(name="Autosplit LOD 3 Min Distance", description="The minimum distance for the third LOD of autosplit objects", default=0.0, min=0.0) # type: ignore
+    autosplit_lod_3_max: bpy.props.FloatProperty(name="Autosplit LOD 3 Max Distance", description="The maximum distance for the third LOD of autosplit objects", default=0.0, min=0.0) # type: ignore
+    autosplit_lod_4_min: bpy.props.FloatProperty(name="Autosplit LOD 4 Min Distance", description="The minimum distance for the fourth LOD of autosplit objects", default=0.0, min=0.0) # type: ignore
+    autosplit_lod_4_max: bpy.props.FloatProperty(name="Autosplit LOD 4 Max Distance", description="The maximum distance for the fourth LOD of autosplit objects", default=0.0, min=0.0) # type: ignore
+
+class XPlaneLinLayer(bpy.types.PropertyGroup):
+    exportable: bpy.props.BoolProperty(
+        name="Export",
+        default=True,
+        description="Whether or not this layer should be exported",
+        update=update_ui
+    ) # type: ignore
+    
+    type: bpy.props.EnumProperty(
+        name="Type",
+        items=line_type,
+        default="SEGMENT",
+        description="What part of the line this is",
+        update=update_ui
+    ) # type: ignore
+
+class XPlaneDataref(bpy.types.PropertyGroup):
+    path: bpy.props.StringProperty(
+        name = "Dataref Path",
+        description = "Dataref Path",
+        default = ""
+    )
+
+    value: bpy.props.FloatProperty(
+        name = "Value",
+        description = "Value",
+        default = 0.0,
+        precision = 6
+    )
+
+    loop: bpy.props.FloatProperty(
+        name = "Loop Animation Every",
+        description = "Loop amount of animation, useful for ever increasing Datarefs. A value of 0 will ignore this setting",
+        min = 0.0,
+        precision = 3
+    )
+
+    anim_type: bpy.props.EnumProperty(
+        name = "Dataref Purpose",
+        description = "Type of animation this Dataref will use",
+        default = ANIM_TYPE_TRANSFORM,
+        items = [
+            (ANIM_TYPE_TRANSFORM, "Transformation", "Transformation"),
+            (ANIM_TYPE_SHOW, "Show", "Show"),
+            (ANIM_TYPE_HIDE, "Hide", "Hide")
+        ]
+    )
+
+    show_hide_v1: bpy.props.FloatProperty(
+        name = "Value 1",
+        description = "Show/Hide value 1",
+        default = 0.0,
+        precision = 3
+    )
+
+    show_hide_v2: bpy.props.FloatProperty(
+        name = "Value 2",
+        description = "Show/Hide value 2",
+        default = 0.0,
+        precision = 3
+    )
+
+class XPlaneCondition(bpy.types.PropertyGroup):
+    variable: bpy.props.EnumProperty(
+        name = "Variable",
+        description = "Variable",
+        default = CONDITION_GLOBAL_LIGHTING,
+        items = [
+            (CONDITION_GLOBAL_LIGHTING, 'HDR', 'HDR mode On/Off'),
+            (CONDITION_GLOBAL_SHADOWS, 'Global Shadows', 'Global shadows On/Off'),
+            (CONDITION_VERSION10, 'Version 10.x', 'Always "On", as V9 does not support conditions')
+        ]
+    )
+
+    value: bpy.props.BoolProperty(
+        name = "Must Be On",
+        description = "On/Off",
+        default = True
+    )
 
 class XPlaneEmitter(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty(
@@ -549,115 +768,6 @@ class XPlaneEmpty(bpy.types.PropertyGroup):
         ]
     )
 
-
-# Class: XPlaneDataref
-# A X-Plane Dataref
-#
-# Properties:
-#   string path - Dataref path
-#   float value - Dataref value (can be keyframed)
-#   int loop - Loop amount of dataref animation.
-class XPlaneDataref(bpy.types.PropertyGroup):
-    path: bpy.props.StringProperty(
-        name = "Dataref Path",
-        description = "Dataref Path",
-        default = ""
-    )
-
-    value: bpy.props.FloatProperty(
-        name = "Value",
-        description = "Value",
-        default = 0.0,
-        precision = 6
-    )
-
-    loop: bpy.props.FloatProperty(
-        name = "Loop Animation Every",
-        description = "Loop amount of animation, useful for ever increasing Datarefs. A value of 0 will ignore this setting",
-        min = 0.0,
-        precision = 3
-    )
-
-    anim_type: bpy.props.EnumProperty(
-        name = "Dataref Purpose",
-        description = "Type of animation this Dataref will use",
-        default = ANIM_TYPE_TRANSFORM,
-        items = [
-            (ANIM_TYPE_TRANSFORM, "Transformation", "Transformation"),
-            (ANIM_TYPE_SHOW, "Show", "Show"),
-            (ANIM_TYPE_HIDE, "Hide", "Hide")
-        ]
-    )
-
-    show_hide_v1: bpy.props.FloatProperty(
-        name = "Value 1",
-        description = "Show/Hide value 1",
-        default = 0.0,
-        precision = 3
-    )
-
-    show_hide_v2: bpy.props.FloatProperty(
-        name = "Value 2",
-        description = "Show/Hide value 2",
-        default = 0.0,
-        precision = 3
-    )
-
-
-# Class: XPlaneCondition
-# A custom attribute.
-#
-# Properties:
-#   string variable - Condition variable
-#   string value - Value of the variable
-#   string operator - Conditional operator to use
-class XPlaneCondition(bpy.types.PropertyGroup):
-    variable: bpy.props.EnumProperty(
-        name = "Variable",
-        description = "Variable",
-        default = CONDITION_GLOBAL_LIGHTING,
-        items = [
-            (CONDITION_GLOBAL_LIGHTING, 'HDR', 'HDR mode On/Off'),
-            (CONDITION_GLOBAL_SHADOWS, 'Global Shadows', 'Global shadows On/Off'),
-            (CONDITION_VERSION10, 'Version 10.x', 'Always "On", as V9 does not support conditions')
-        ]
-    )
-
-    value: bpy.props.BoolProperty(
-        name = "Must Be On",
-        description = "On/Off",
-        default = True
-    )
-
-# Class: XPlaneManipulatorSettings
-# A X-Plane manipulator settings
-#
-# Properties:
-#   bool enabled - True if object is a manipulator
-#   enum type - Manipulator types as defined in OBJ specs.
-#   string tooltip - Manipulator Tooltip
-#   enum cursor - Manipulator cursors as defined in OBJ specs.
-
-#   float dx - X-Drag axis length
-#   float dy - Y-Drag axis length
-#   float dz - Z-Drag axis length
-#
-#   float v1 - Value 1
-#   float v2 - Value 2
-#   float v1_min - Value 1 min.
-#   float v1_max - Value 1 max.
-#   float v2_min - Value 2 min.
-#   float v2_max - Value 2 max.
-#   float v_down - Value on mouse down
-#   float v_up - Value on mouse up
-#   float v_hold - Value on mouse hold
-#   float v_on - On value
-#   float v_off - Off value
-#   string command - Command
-#   string positive_command - Positive command
-#   string negative_command - Negative command
-#   string dataref1 - Dataref 1
-#   string dataref2 - Dataref 2
 class XPlaneManipulatorSettings(bpy.types.PropertyGroup):
     autodetect_datarefs: bpy.props.BoolProperty(
         name = "Autodetect Datarefs",
@@ -938,15 +1048,6 @@ class XPlaneManipulatorSettings(bpy.types.PropertyGroup):
         items = self.get_manip_types_for_this_version(None)
         return next(filter(lambda item: item[0] == self.type, items))[1]#.name
 
-
-# Class: XPlaneCockpitRegion
-# Defines settings for a cockpit region.
-#
-# Properties:
-#   int top - BAD NAME ALERT it should have been called bottom! Bottom position of the region in px
-#   int left - left position of the region in px
-#   int width - width of the region in powers of 2
-#   int height - height of the region in powers of 2
 class XPlaneCockpitRegion(bpy.types.PropertyGroup):
     expanded: bpy.props.BoolProperty(
         name = "Expanded",
@@ -1129,7 +1230,110 @@ class XPlaneRainSettings(bpy.types.PropertyGroup):
     )
     wiper_4_enabled: bpy.props.BoolProperty(name="Enable Wiper",)
 
-class XPlaneLayer(bpy.types.PropertyGroup):
+class XPlanePolygonCollection(bpy.types.PropertyGroup):
+    texture_is_nowrap: bpy.props.BoolProperty(name="Non-tiling textures", description="Whether the texture can tile or not", default=False) # type: ignore
+
+    is_load_centered: bpy.props.BoolProperty(name="Enable Load Center", description="Whether the polygon uses location base texture scaling", default=False) # type: ignore
+    load_center_lat: bpy.props.FloatProperty(name="Load Center Latitude", description="The latitude used for texture scaling", default=0.0) # type: ignore
+    load_center_lon: bpy.props.FloatProperty(name="Load Center Longitude", description="The longitude used for texture scaling", default=0.0) # type: ignore
+    load_center_resolution: bpy.props.IntProperty(name="Load Center Resolution", description="The resolution used for texture scaling", default=4096) # type: ignore
+    load_center_size: bpy.props.FloatProperty(name="Load Center Size", description="The size used for texture scaling", default=1000) # type: ignore
+
+    is_texture_tiling: bpy.props.BoolProperty(name="Enable Texture Tiling", description="Whether the polygon uses texture tiling", default=False) # type: ignore
+    texture_tiling_x_pages: bpy.props.IntProperty(name="Texture Tiling X Pages", description="The number of pages in the x direction", default=1) # type: ignore
+    texture_tiling_y_pages: bpy.props.IntProperty(name="Texture Tiling Y Pages", description="The number of pages in the y direction", default=1) # type: ignore
+    texture_tiling_map_x_res: bpy.props.IntProperty(name="Texture Tiling Map X Resolution", description="The resolution of the texture tiling map in the x direction", default=4096) # type: ignore
+    texture_tiling_map_y_res: bpy.props.IntProperty(name="Texture Tiling Map Y Resolution", description="The resolution of the texture tiling map in the y direction", default=4096) # type: ignore
+    texture_tiling_map_texture: bpy.props.StringProperty(name="Texture Tiling Map Texture", description="The texture used for the texture tiling map", default="", subtype="FILE_PATH") # type: ignore
+
+    is_runway_markings: bpy.props.BoolProperty(name="LR Runway Markings (Advanced)", description="Whether the polygon uses runway markings. These can only be used for polygons used by X-Plane runways, which currently are only default polygons", default=False) # type: ignore
+    runway_markings_r: bpy.props.FloatProperty(name="Runway Markings Red", description="The red value for the runway markings", default=1.0) # type: ignore
+    runway_markings_g: bpy.props.FloatProperty(name="Runway Markings Green", description="The green value for the runway markings", default=1.0) # type: ignore
+    runway_markings_b: bpy.props.FloatProperty(name="Runway Markings Blue", description="The blue value for the runway markings", default=1.0) # type: ignore
+    runway_markings_a: bpy.props.FloatProperty(name="Runway Markings Alpha", description="The alpha value for the runway markings", default=1.0) # type: ignore
+    runway_markings_texture: bpy.props.StringProperty(name="Runway Markings Texture", description="The texture used for the runway markings", default="", subtype="FILE_PATH") # type: ignore
+
+class XPlaneLineCollection(bpy.types.PropertyGroup):
+    mirror: bpy.props.BoolProperty(
+        name="Mirror",
+        default=True,
+        description="Whether or not to mirror the line. Keep this on to avoid stretching, unless the line contains text",
+        update=update_ui
+    ) # type: ignore
+    
+    segment_count: bpy.props.IntProperty(
+        name="Segment Count",
+        default=0,
+        min=0,
+        description="If non-zero, X-Plane will stretch/compress the texture to always end on a subdivision. Useful for alignment with end caps",
+        update=update_ui
+    ) # type: ignore
+
+class XPlaneFacadeFilteredSpellingChoices(bpy.types.PropertyGroup):
+    collection: bpy.props.StringProperty(name="Name")  #type: ignore
+
+class XPlaneFacadeSpelling(bpy.types.PropertyGroup):
+    is_ui_expanded: bpy.props.BoolProperty(name="UI Expanded", description="Whether the spelling is expanded in the UI", default=False, update=update_ui)# type: ignore
+    entries: bpy.props.CollectionProperty(type=XPlaneFacadeFilteredSpellingChoices)# type: ignore
+
+class XPlaneFacadeWall(bpy.types.PropertyGroup):
+    min_length: bpy.props.FloatProperty(name="Min Length", description="The minimum length of the wall", default=0, min=0, max=10000)# type: ignore
+    max_length: bpy.props.FloatProperty(name="Max Length", description="The maximum length of the wall", default=1000, min=0, max=10000)# type: ignore
+    min_heading: bpy.props.FloatProperty(name="Min Heading", description="The minimum heading of the wall", default=0, min=0, max=360)# type: ignore
+    max_heading: bpy.props.FloatProperty(name="Max Heading", description="The maximum heading of the wall", default=360, min=0, max=360)# type: ignore
+    name: bpy.props.StringProperty(name="Wall Name", default="", update=update_ui)# type: ignore
+    spellings: bpy.props.CollectionProperty(type=XPlaneFacadeSpelling)# type: ignore
+    is_ui_expanded: bpy.props.BoolProperty(name="UI Expanded", description="Whether the wall is expanded in the UI", default=False, update=update_ui)# type: ignore
+
+class XPlaneFacadeFloor(bpy.types.PropertyGroup):
+    name: bpy.props.StringProperty(name="Floor Name", description="The name of the floor")# type: ignore
+    roof_collection: bpy.props.StringProperty(name="Name")  #type: ignore
+    walls: bpy.props.CollectionProperty(type=XPlaneFacadeWall)# type: ignore
+    is_ui_expanded: bpy.props.BoolProperty(name="UI Expanded", description="Whether the floor is expanded in the UI", default=False, update=update_ui)# type: ignore
+    roof_collisions: bpy.props.BoolProperty(name="Roof Collisions", description="Whether the roof has collisions enabled", default=True, update=update_ui)# type: ignore
+    roof_two_sided: bpy.props.BoolProperty(name="Roof Two Sided", description="Whether the roof is two sided", default=False, update=update_ui)# type: ignore
+
+class XPlaneFacadeCollection(bpy.types.PropertyGroup):
+    #Facade name
+    exportable: bpy.props.BoolProperty(name="Exportable", description="Whether the facade is exportable", default=False, update=update_ui)# type: ignore
+    name: bpy.props.StringProperty( name="Facade Name", description="The name of the facade")# type: ignore
+    is_ui_expanded: bpy.props.BoolProperty(name="UI Expanded", description="Whether the facade is expanded in the UI", default=False, update=update_ui)# type: ignore
+
+    #Global properties
+    graded: bpy.props.BoolProperty(name="Graded", description="Whether the facade is graded, otherwise draped")# type: ignore
+    ring: bpy.props.BoolProperty(name="Ring", description="Whether the facade is a closed or an open ring")# type: ignore
+
+    #Wall properties
+    render_wall: bpy.props.BoolProperty(name="Render Wall", description="Whether the wall is rendered", update=update_ui)# type: ignore
+    wall_material: bpy.props.PointerProperty(type=bpy.types.Material, name="Wall Material", description="The material to use for the wall", update=update_ui)# type: ignore
+
+    #Roof properties
+    render_roof: bpy.props.BoolProperty(name="Render Roof", description="Whether the roof is rendered", update=update_ui)# type: ignore
+    roof_material: bpy.props.PointerProperty(type=bpy.types.Material, name="Roof Material", description="The material to use for the roof", update=update_ui)# type: ignore
+
+    #Floors
+    floors: bpy.props.CollectionProperty(type=XPlaneFacadeFloor)# type: ignore
+
+    #Eligable spelling choices
+    spelling_choices: bpy.props.CollectionProperty(type=XPlaneFacadeFilteredSpellingChoices)# type: ignore
+
+class XPlaneAgpCollection(bpy.types.PropertyGroup):
+    is_texture_tiling: bpy.props.BoolProperty(name="Enable Texture Tiling", description="Whether the polygon uses texture tiling", default=False) # type: ignore
+    texture_tiling_x_pages: bpy.props.IntProperty(name="Texture Tiling X Pages", description="The number of pages in the x direction", default=1) # type: ignore
+    texture_tiling_y_pages: bpy.props.IntProperty(name="Texture Tiling Y Pages", description="The number of pages in the y direction", default=1) # type: ignore
+    texture_tiling_map_x_res: bpy.props.IntProperty(name="Texture Tiling Map X Resolution", description="The resolution of the texture tiling map in the x direction", default=4096) # type: ignore
+    texture_tiling_map_y_res: bpy.props.IntProperty(name="Texture Tiling Map Y Resolution", description="The resolution of the texture tiling map in the y direction", default=4096) # type: ignore
+    texture_tiling_map_texture: bpy.props.StringProperty(name="Texture Tiling Map Texture", description="The texture used for the texture tiling map", default="", subtype="FILE_PATH") # type: ignore
+
+    vegetation_asset: bpy.props.StringProperty(name="Vegetation Asset", description="The asset to use for the vegetation in the autogen point collection", default="", update=update_ui) # type: ignore
+
+    render_tiles: bpy.props.BoolProperty(name="Render Tile", description="Whether the tile is rendered", default=True, update=update_ui) # type: ignore
+    tile_lod: bpy.props.IntProperty(name="Tile LOD", description="The LOD for the tile", default=20000, min=0) # type: ignore
+
+class XPlaneForestCollection(bpy.types.PropertyGroup):
+    pass
+
+class XPlaneObjectCollection(bpy.types.PropertyGroup):
     """
     Defines settings for an OBJ file. Is was formerly tied to
     Blender 3D-View Layers, but now is for Roots and Collections
@@ -1175,12 +1379,6 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         default=PANEL_COCKPIT,
     )
 
-    expanded: bpy.props.BoolProperty(
-        name = "Expanded",
-        description = "Toggles the layer settings visibility",
-        default = False
-    )
-
     export_path_directives: bpy.props.CollectionProperty(
         name = "Export Directives for OBJ",
         description = "A collection of export paths intended for an OBJ's EXPORT directives",
@@ -1218,6 +1416,7 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         description = "Relative file path to a .pss that defines particles",
         subtype = "FILE_PATH"
     )
+   
     rain: bpy.props.PointerProperty(
         type=XPlaneRainSettings,
         name="X-Plane Rain Settings",
@@ -1253,30 +1452,6 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         precision = 2
     )
 
-    debug: bpy.props.BoolProperty(
-        name = "Debug This OBJ",
-        description = "If this and Scene > Advanced Settings > Debug are checked, debug information for this OBJ will be written to the export log and the OBJ",
-        default = True
-    )
-
-    name: bpy.props.StringProperty(
-        name = "Name",
-        description = "This name will be used as a filename hint for OBJ file(s)",
-        default = ""
-    )
-
-    export_type: bpy.props.EnumProperty(
-        name = "Type",
-        description = "What kind of thing are you going to export?",
-        default = "aircraft",
-        items = [
-            (EXPORT_TYPE_AIRCRAFT, "Aircraft (Part)", "Aircraft (Part)"),
-            (EXPORT_TYPE_COCKPIT, "Cockpit", "Cockpit"),
-            (EXPORT_TYPE_SCENERY, "Scenery Object", "Scenery Object"),
-            (EXPORT_TYPE_INSTANCED_SCENERY, "Instanced Scenery Object", "Instanced Scenery Object")
-        ]
-    )
-
     # TODO: Remove this already!
     # Deprecated: This will be removed in v3.4
     cockpit: bpy.props.BoolProperty(
@@ -1292,485 +1467,6 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         step = 1,
         precision = 3
     )
-
-    texture: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Texture",
-        description = "Texture to use for objects on this layer",
-        default = ""
-    )
-
-    texture_lit: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Night Texture",
-        description = "Night Texture to use for objects on this layer",
-        default = ""
-    )
-
-    texture_normal: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Normal/Specular Texture",
-        description = "Normal/Specular Texture to use for objects on this layer",
-        default = ""
-    )
-
-    # v1000
-    texture_draped: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Draped Texture",
-        description = "Texture to use for draped objects on this layer",
-        default = ""
-    )
-
-    # v1000
-    texture_draped_normal: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Normal/Specular Texture Draped Texture",
-        description = "Normal/Specular Texture to use for draped objects on this layer",
-        default = ""
-    )
-
-    # v1200
-    texture_map_gloss: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Gloss Texture",
-        description = "Gloss texture to use for objects on this layer",
-        default = ""
-    )
-
-    # v1200
-    texture_map_material_gloss: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Material/Gloss Texture",
-        description = "Material/Gloss texture to use for objects on this layer",
-        default = ""
-    )
-
-    # v1200
-    texture_map_normal: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Normal Texture",
-        description = "XY normal texture to use for objects on this layer",
-        default = ""
-    )
-
-    file_decal1: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Detail Texture 1",
-        description = "Detail Texture to use for objects on this layer",
-        default = ""
-    )
-    
-    file_decal2: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Detail Texture 2",
-        description = "Detail Texture to use for objects on this layer",
-        default = ""
-    )
-    
-    file_draped_decal1: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Draped Detail Texture 1",
-        description = "Detail Texture to use for draped objects on this layer",
-        default = ""
-    )
-    
-    file_draped_decal2: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Draped Detail Texture 2",
-        description = "Detail Texture to use for draped objects on this layer",
-        default = ""
-    )
-
-    file_normal_decal1: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Normal Map Detail Texture 1",
-        description = "Normal map detail texture to use for objects on this layer",
-        default = ""
-    )
-    
-    file_normal_decal2: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Normal Map Detail Texture 2",
-        description = "Normal map detail texture to use for objects on this layer",
-        default = ""
-    )
-    
-    file_draped_normal_decal1: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Draped Normal Map Detail Texture 1",
-        description = "Normal map detail texture to use for draped objects on this layer",
-        default = ""
-    )
-
-    file_draped_normal_decal2: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Draped Normal Map Detail Texture 2",
-        description = "Normal map detail texture to use for draped objects on this layer",
-        default = ""
-    )
-
-    texture_modulator: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Modulator Texture",
-        description = "Modulator texture to use for objects on this layer",
-        default = ""
-    )
-    
-    texture_draped_modulator: bpy.props.StringProperty(
-        subtype = "FILE_PATH",
-        name = "Draped Modulator Texture",
-        description = "Modulator texture to use for draped objects on this layer",
-        default = ""
-    )
-    
-    decal1_projected: bpy.props.BoolProperty(
-        name = "Make Detail Texture 1 Projected",
-        description = "If checked, the detail texture will be projected",
-        default = False
-    )
-
-    decal2_projected: bpy.props.BoolProperty(
-        name = "Make Detail Texture 2 Projected",
-        description = "If checked, the detail texture will be projected",
-        default = False
-    )
-    
-    draped_decal1_projected: bpy.props.BoolProperty(
-        name = "Make Draped Detail Texture 1 Projected",
-        description = "If checked, the draped detail texture will be projected",
-        default = True
-    )
-
-    draped_decal2_projected: bpy.props.BoolProperty(
-        name = "Make Draped Detail Texture 2 Projected",
-        description = "If checked, the draped detail texture will be projected",
-        default = True
-    )
-    
-    normal_decal1_projected: bpy.props.BoolProperty(
-        name = "Make Normal Map Detail Texture 1 Projected",
-        description = "If checked, the normal map detail texture will be projected",
-        default = False
-    )
-
-    normal_decal2_projected: bpy.props.BoolProperty(
-        name = "Make Normal Map Detail Texture 2 Projected",
-        description = "If checked, the normal map detail texture will be projected",
-        default = False
-    )
-    
-    draped_normal_decal1_projected: bpy.props.BoolProperty(
-        name = "Make Draped Normal Map Detail Texture 1 Projected",
-        description = "If checked, the draped normal map detail texture will be projected",
-        default = True
-    )
-
-    draped_normal_decal2_projected: bpy.props.BoolProperty(
-        name = "Make Draped Normal Map Detail Texture 2 Projected",
-        description = "If checked, the draped normal map detail texture will be projected",
-        default = True
-    )
-    
-    decal1_scale: bpy.props.FloatProperty(
-        name = "Detail Texture 1 Scale",
-        description = "Scale of the detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    decal1_x_scale: bpy.props.FloatProperty(
-        name = "Detail Texture 1 X Scale",
-        description = "X scale of the detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    decal1_y_scale: bpy.props.FloatProperty(
-        name = "Detail Texture 1 Y Scale",
-        description = "Y scale of the detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    decal2_scale: bpy.props.FloatProperty(
-        name = "Detail Texture 2 Scale",
-        description = "Scale of the detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-
-    decal2_x_scale: bpy.props.FloatProperty(
-        name = "Detail Texture 2 X Scale",
-        description = "X scale of the detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    decal2_y_scale: bpy.props.FloatProperty(
-        name = "Detail Texture 2 Y Scale",
-        description = "Y scale of the detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    draped_decal1_scale: bpy.props.FloatProperty(
-        name = "Draped Detail Texture 1 Scale",
-        description = "Scale of the draped detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    draped_decal1_x_scale: bpy.props.FloatProperty(
-        name = "Draped Detail Texture 1 X Scale",
-        description = "X scale of the draped detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    draped_decal1_y_scale: bpy.props.FloatProperty(
-        name = "Draped Detail Texture 1 Y Scale",
-        description = "Y scale of the draped detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    draped_decal2_scale: bpy.props.FloatProperty(
-        name = "Draped Detail Texture 2 Scale",
-        description = "Scale of the draped detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-
-    draped_decal2_x_scale: bpy.props.FloatProperty(
-        name = "Draped Detail Texture 2 X Scale",
-        description = "X scale of the draped detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    draped_decal2_y_scale: bpy.props.FloatProperty(
-        name = "Draped Detail Texture 2 Y Scale",
-        description = "Y scale of the draped detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    normal_decal1_scale: bpy.props.FloatProperty(
-        name = "Normal Map Detail Texture 1 Scale",
-        description = "Scale of the normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-
-    normal_decal1_x_scale: bpy.props.FloatProperty(
-        name = "Normal Map Detail Texture 1 X Scale",
-        description = "X scale of the normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    normal_decal1_y_scale: bpy.props.FloatProperty(
-        name = "Normal Map Detail Texture 1 Y Scale",
-        description = "Y scale of the normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    normal_decal2_scale: bpy.props.FloatProperty(
-        name = "Normal Map Detail Texture 2 Scale",
-        description = "Scale of the normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-
-    normal_decal2_x_scale: bpy.props.FloatProperty(
-        name = "Normal Map Detail Texture 2 X Scale",
-        description = "X scale of the normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    normal_decal2_y_scale: bpy.props.FloatProperty(
-        name = "Normal Map Detail Texture 2 Y Scale",
-        description = "Y scale of the normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-
-    draped_normal_decal1_scale: bpy.props.FloatProperty(
-        name = "Draped Normal Map Detail Texture 1 Scale",
-        description = "Scale of the draped normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-
-    draped_normal_decal1_x_scale: bpy.props.FloatProperty(
-        name = "Draped Normal Map Detail Texture 1 X Scale",
-        description = "X scale of the draped normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    draped_normal_decal1_y_scale: bpy.props.FloatProperty(
-        name = "Draped Normal Map Detail Texture 1 Y Scale",
-        description = "Y scale of the draped normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    draped_normal_decal2_scale: bpy.props.FloatProperty(
-        name = "Draped Normal Map Detail Texture 2 Scale",
-        description = "Scale of the draped normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-
-    draped_normal_decal2_x_scale: bpy.props.FloatProperty(
-        name = "Draped Normal Map Detail Texture 2 X Scale",
-        description = "X scale of the draped normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-    
-    draped_normal_decal2_y_scale: bpy.props.FloatProperty(
-        name = "Draped Normal Map Detail Texture 2 Y Scale",
-        description = "Y scale of the draped normal map detail texture",
-        min = 0.0,
-        step = 0.1,
-        precision = 2,
-        default = 1.0
-    )
-
-    rgb_decal1_red_key: bpy.props.FloatProperty(name = "RGB Detail Texture 1 Red Key", description = "Red channel key for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    rgb_decal1_green_key: bpy.props.FloatProperty(name = "RGB Detail Texture 1 Green Key", description = "Green channel key for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    rgb_decal1_blue_key: bpy.props.FloatProperty(name = "RGB Detail Texture 1 Blue Key", description = "Blue channel key for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    rgb_decal1_alpha_key: bpy.props.FloatProperty(name = "RGB Detail Texture 1 Alpha Key", description = "Alpha channel key for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    rgb_decal1_modulator: bpy.props.FloatProperty(name = "RGB Detail Texture 1 Modulator Strength", description = "Modulator strength for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    rgb_decal1_constant: bpy.props.FloatProperty(name = "RGB Detail Texture 1 Constant Strength", description = "Constant strength for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    
-    alpha_decal1_red_key: bpy.props.FloatProperty(name = "Alpha Detail Texture 1 Red Key", description = "Red channel key for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    alpha_decal1_green_key: bpy.props.FloatProperty(name = "Alpha Detail Texture 1 Green Key", description = "Green channel key for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    alpha_decal1_blue_key: bpy.props.FloatProperty(name = "Alpha Detail Texture 1 Blue Key", description = "Blue channel key for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    alpha_decal1_alpha_key: bpy.props.FloatProperty(name = "Alpha Detail Texture 1 Alpha Key", description = "Alpha channel key for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    alpha_decal1_modulator: bpy.props.FloatProperty(name = "Alpha Detail Texture 1 Modulator Strength", description = "Modulator strength for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    alpha_decal1_constant: bpy.props.FloatProperty(name = "Alpha Detail Texture 1 Constant Strength", description = "Constant strength for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    
-    rgb_decal2_red_key: bpy.props.FloatProperty(name = "RGB Detail Texture 2 Red Key", description = "Red channel key for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    rgb_decal2_green_key: bpy.props.FloatProperty(name = "RGB Detail Texture 2 Green Key", description = "Green channel key for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    rgb_decal2_blue_key: bpy.props.FloatProperty(name = "RGB Detail Texture 2 Blue Key", description = "Blue channel key for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    rgb_decal2_alpha_key: bpy.props.FloatProperty(name = "RGB Detail Texture 2 Alpha Key", description = "Alpha channel key for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    rgb_decal2_modulator: bpy.props.FloatProperty(name = "RGB Detail Texture 2 Modulator Strength", description = "Modulator strength for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    rgb_decal2_constant: bpy.props.FloatProperty(name = "RGB Detail Texture 2 Constant Strength", description = "Constant strength for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-
-    alpha_decal2_red_key: bpy.props.FloatProperty(name = "Alpha Detail Texture 2 Red Key", description = "Red channel key for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    alpha_decal2_green_key: bpy.props.FloatProperty(name = "Alpha Detail Texture 2 Green Key", description = "Green channel key for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    alpha_decal2_blue_key: bpy.props.FloatProperty(name = "Alpha Detail Texture 2 Blue Key", description = "Blue channel key for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    alpha_decal2_alpha_key: bpy.props.FloatProperty(name = "Alpha Detail Texture 2 Alpha Key", description = "Alpha channel key for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    alpha_decal2_modulator: bpy.props.FloatProperty(name = "Alpha Detail Texture 2 Modulator Strength", description = "Modulator strength for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-    alpha_decal2_constant: bpy.props.FloatProperty(name = "Alpha Detail Texture 2 Constant Strength", description = "Constant strength for the alpha part of the detail texture", step = 0.01, precision = 2, default = 0.0)
-
-    draped_rgb_decal1_red_key: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 1 Red Key", description = "Red channel key for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_rgb_decal1_green_key: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 1 Green Key", description = "Green channel key for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_rgb_decal1_blue_key: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 1 Blue Key", description = "Blue channel key for the RGB part of the draped detail texture",step = 0.01, precision = 2, default = 0.0)
-    draped_rgb_decal1_alpha_key: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 1 Alpha Key", description = "Alpha channel key for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_rgb_decal1_modulator: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 1 Modulator Strength", description = "Modulator strength for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_rgb_decal1_constant: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 1 Constant Strength", description = "Constant strength for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    
-    draped_alpha_decal1_red_key: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 1 Red Key", description = "Red channel key for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_alpha_decal1_green_key: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 1 Green Key", description = "Green channel key for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_alpha_decal1_blue_key: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 1 Blue Key", description = "Blue channel key for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_alpha_decal1_alpha_key: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 1 Alpha Key", description = "Alpha channel key for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_alpha_decal1_modulator: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 1 Modulator Strength", description = "Modulator strength for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_alpha_decal1_constant: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 1 Constant Strength", description = "Constant strength for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-
-    draped_rgb_decal2_red_key: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 2 Red Key", description = "Red channel key for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_rgb_decal2_green_key: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 2 Green Key", description = "Green channel key for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_rgb_decal2_blue_key: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 2 Blue Key", description = "Blue channel key for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_rgb_decal2_alpha_key: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 2 Alpha Key", description = "Alpha channel key for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_rgb_decal2_modulator: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 2 Modulator Strength", description = "Modulator strength for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_rgb_decal2_constant: bpy.props.FloatProperty(name = "Draped RGB Detail Texture 2 Constant Strength", description = "Constant strength for the RGB part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    
-    draped_alpha_decal2_red_key: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 2 Red Key", description = "Red channel key for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_alpha_decal2_green_key: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 2 Green Key", description = "Green channel key for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_alpha_decal2_blue_key: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 2 Blue Key", description = "Blue channel key for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_alpha_decal2_alpha_key: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 2 Alpha Key", description = "Alpha channel key for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_alpha_decal2_modulator: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 2 Modulator Strength", description = "Modulator strength for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_alpha_decal2_constant: bpy.props.FloatProperty(name = "Draped Alpha Detail Texture 2 Constant Strength", description = "Constant strength for the alpha part of the draped detail texture", step = 0.01, precision = 2, default = 0.0)
-
-    normal_decal1_red_key: bpy.props.FloatProperty(name = "Normal Map Detail Texture 1 Red Key", description = "Red channel key for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    normal_decal1_green_key: bpy.props.FloatProperty(name = "Normal Map Detail Texture 1 Green Key", description = "Green channel key for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    normal_decal1_blue_key: bpy.props.FloatProperty(name = "Normal Map Detail Texture 1 Blue Key", description = "Blue channel key for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    normal_decal1_alpha_key: bpy.props.FloatProperty(name = "Normal Map Detail Texture 1 Alpha Key", description = "Alpha channel key for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    normal_decal1_modulator: bpy.props.FloatProperty(name = "Normal Map Detail Texture 1 Modulator Strength", description = "Modulator strength for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    normal_decal1_constant: bpy.props.FloatProperty(name = "Normal Map Detail Texture 1 Constant Strength", description = "Constant strength for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-
-    normal_decal2_red_key: bpy.props.FloatProperty(name = "Normal Map Detail Texture 2 Red Key", description = "Red channel key for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    normal_decal2_green_key: bpy.props.FloatProperty(name = "Normal Map Detail Texture 2 Green Key", description = "Green channel key for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    normal_decal2_blue_key: bpy.props.FloatProperty(name = "Normal Map Detail Texture 2 Blue Key", description = "Blue channel key for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    normal_decal2_alpha_key: bpy.props.FloatProperty(name = "Normal Map Detail Texture 2 Alpha Key", description = "Alpha channel key for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    normal_decal2_modulator: bpy.props.FloatProperty(name = "Normal Map Detail Texture 2 Modulator Strength", description = "Modulator strength for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    normal_decal2_constant: bpy.props.FloatProperty(name = "Normal Map Detail Texture 2 Constant Strength", description = "Constant strength for the normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-
-    draped_normal_decal1_red_key: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 1 Red Key", description = "Red channel key for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_normal_decal1_green_key: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 1 Green Key", description = "Green channel key for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_normal_decal1_blue_key: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 1 Blue Key", description = "Blue channel key for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_normal_decal1_alpha_key: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 1 Alpha Key", description = "Alpha channel key for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_normal_decal1_modulator: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 1 Modulator Strength", description = "Modulator strength for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_normal_decal1_constant: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 1 Constant Strength", description = "Constant strength for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-
-    draped_normal_decal2_red_key: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 2 Red Key", description = "Red channel key for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_normal_decal2_green_key: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 2 Green Key", description = "Green channel key for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_normal_decal2_blue_key: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 2 Blue Key", description = "Blue channel key for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_normal_decal2_alpha_key: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 2 Alpha Key", description = "Alpha channel key for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_normal_decal2_modulator: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 2 Modulator Strength", description = "Modulator strength for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
-    draped_normal_decal2_constant: bpy.props.FloatProperty(name = "Draped Normal Map Detail Texture 2 Constant Strength", description = "Constant strength for the draped normal map detail texture", step = 0.01, precision = 2, default = 0.0)
 
     # BAD NAME ALERT!
     # regions (plural) is the enum, region (singular) is the collection
@@ -1882,52 +1578,6 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         default = True
     )
 
-    # v1000
-    layerGroups = [
-        (LAYER_GROUP_NONE,          "None",          "Does not draws this OBJ in any group"),
-        (LAYER_GROUP_TERRAIN,       "Terrain",       "Terrain"),
-        (LAYER_GROUP_BEACHES,       "Beaches",       "Beaches"),
-        (LAYER_GROUP_SHOULDERS,     "Shoulders",     "Shoulders"),
-        (LAYER_GROUP_TAXIWAYS,      "Taxiways",      "Taxiways"),
-        (LAYER_GROUP_RUNWAYS,       "Runways",       "Runways"),
-        (LAYER_GROUP_MARKINGS,      "Markings",      "Markings"),
-        (LAYER_GROUP_AIRPORTS,      "Airports",      "Airports"),
-        (LAYER_GROUP_ROADS,         "Roads",         "Roads"),
-        (LAYER_GROUP_OBJECTS,       "Objects",       "Objects"),
-        (LAYER_GROUP_LIGHT_OBJECTS, "Light Objects", "Light Objects"),
-        (LAYER_GROUP_CARS,          "Cars",          "Cars")
-    ]
-
-    layer_group: bpy.props.EnumProperty(
-        name = "Layer Group",
-        description = "Draw this OBJ in a special group",
-        default = "none",
-        items = layerGroups
-    )
-
-    layer_group_offset: bpy.props.IntProperty(
-        name = "Layer Group Offset",
-        description = "Use to fine tune drawing order",
-        default = 0,
-        min = -5,
-        max = 5
-    )
-
-    layer_group_draped: bpy.props.EnumProperty(
-        name = "Draped Layer Group",
-        description = "Draws draped geometry in a special group",
-        default = "none",
-        items = layerGroups
-    )
-
-    layer_group_draped_offset: bpy.props.IntProperty(
-        name = "Draped Layer Group Offset",
-        description = "Use to fine tune drawing order of draped geometry",
-        default = 0,
-        min = -5,
-        max = 5
-    )
-
     customAttributes: bpy.props.CollectionProperty(
         name = "Custom X-Plane Header Attributes",
         description = "User defined header attributes for the X-Plane file",
@@ -1940,6 +1590,77 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         default = False
     )
 
+class XPlaneLayer(bpy.types.PropertyGroup):
+    expanded: bpy.props.BoolProperty(
+        name = "Expanded",
+        description = "Toggles the layer settings visibility",
+        default = False
+    ) #type: ignore
+
+    debug: bpy.props.BoolProperty(
+        name = "Debug This OBJ",
+        description = "If this and Scene > Advanced Settings > Debug are checked, debug information for this OBJ will be written to the export log and the OBJ",
+        default = True
+    ) #type: ignore
+
+    name: bpy.props.StringProperty(
+        name = "Name",
+        description = "This name will be used as a filename hint for OBJ file(s)",
+        default = ""
+    ) #type: ignore
+
+    export_type: bpy.props.EnumProperty(
+        name = "Type",
+        description = "What kind of thing are you going to export?",
+        default = "aircraft",
+        items = [
+            (EXPORT_TYPE_AIRCRAFT, "Aircraft (Part)", "Aircraft (Part) (.obj)"),
+            (EXPORT_TYPE_COCKPIT, "Cockpit", "Cockpit (.obj)"),
+            (EXPORT_TYPE_SCENERY, "Scenery Object", "Scenery Object (.obj)"),
+            (EXPORT_TYPE_INSTANCED_SCENERY, "Instanced Scenery Object", "Instanced Scenery Object (.obj)"),
+            (EXPORT_TYPE_AGP, "Autogen Point", "Autogen Point (.agp)"),
+            (EXPORT_TYPE_FACADE, "Facade", "Facade (.fac)"),
+            (EXPORT_TYPE_FOREST, "Forest", "Forest (.for)"),
+            (EXPORT_TYPE_LINE, "Line", "Line (.lin)"),
+            (EXPORT_TYPE_POLYGON, "Polygon", "Polygon (.pol)")
+        ]
+    ) #type: ignore
+
+    obj: bpy.props.PointerProperty(
+        type=XPlaneObjectCollection,
+        name="Object (.obj) Settings",
+        description="Object (.obj) Settings",
+    ) #type: ignore
+
+    agp: bpy.props.PointerProperty(
+        type=XPlaneAgpCollection,
+        name="Autogen Point (.agp) Settings",
+        description="Autogen Point (.agp) Settings",
+    ) #type: ignore
+
+    fac: bpy.props.PointerProperty(
+        type=XPlaneFacadeCollection,
+        name="Facade (.fac) Settings",
+        description="Facade (.fac) Settings",
+    ) #type: ignore
+
+    forest: bpy.props.PointerProperty(
+        type=XPlaneForestCollection,
+        name="Forest (.for) Settings",
+        description="Foret (.for) Settings",
+    ) #type: ignore
+
+    lin: bpy.props.PointerProperty(
+        type=XPlaneLineCollection,
+        name="Line (.lin) Settings",
+        description="Line (.lin) Settings",
+    ) #type: ignore
+
+    pol: bpy.props.PointerProperty(
+        type=XPlanePolygonCollection,
+        name="Polygon (.pol) Settings",
+        description="Polygon (.pol) Settings",
+    ) #type: ignore
 
 class XPlaneCollectionSettings(bpy.types.PropertyGroup):
     is_exportable_collection: bpy.props.BoolProperty(
@@ -1955,6 +1676,12 @@ class XPlaneCollectionSettings(bpy.types.PropertyGroup):
     )
 
 class XPlaneSceneSettings(bpy.types.PropertyGroup):
+    collection_search: bpy.props.StringProperty(
+        name = "Collection Search",
+        description = "Filters collections to a title matching this value",
+        default = ""
+    ) #type: ignore
+
     command_search_window_state: bpy.props.PointerProperty(
             name = "Command Search Window State",
             description = "An internally important property that keeps track of the state of the command search window",
@@ -1965,7 +1692,7 @@ class XPlaneSceneSettings(bpy.types.PropertyGroup):
             name = "Dataref Search Window State",
             description = "An internally important property that keeps track of the state of the dataref search window",
             type = XPlaneDatarefSearchWindow
-            )
+            ) #type: ignore
 
     debug: bpy.props.BoolProperty(
         name = "Print Debug Info To Output, OBJ",
@@ -2050,7 +1777,6 @@ class XPlaneSceneSettings(bpy.types.PropertyGroup):
         name="XPlane2Blender History",
         description="Every version of XPlane2Blender this .blend file has been opened with",
         type=XPlane2BlenderVersion)
-
 
 class XPlaneObjectSettings(bpy.types.PropertyGroup):
     """
@@ -2234,11 +1960,94 @@ class XPlaneBoneSettings(bpy.types.PropertyGroup):
 #   bool blend - True if the material uses alpha cutoff.
 #   float blendRatio - Alpha cutoff ratio.
 class XPlaneMaterialSettings(bpy.types.PropertyGroup):
+    
+
     draw: bpy.props.BoolProperty(
         name = "Draw Objects With This Material",
         description = "If turned off, objects with this material won't be drawn",
         default = True
     )
+
+    #String modulator texture for the decals
+    decal_modulator: bpy.props.StringProperty(
+        name="Decal Modulator",
+        description="The modulator texture for the decals",
+        default="",
+        subtype='FILE_PATH',
+        update=xplane_materials.operator_wrapped_update_settings
+    ) # type: ignore
+
+    #Decal properties. Currently XP only supports 2 alb and 2 nml decals. However in the future this may change
+    #So, rather than hardcode decal_one etc, we use a collection property. in update_settings we will set it to always have 4 items, with 2 being alb and 2 being nml
+    decals: bpy.props.CollectionProperty(
+        type=XPlaneDecal,
+        name="Decals",
+        description="The decals for the material, aka detail textures."
+    ) # type: ignore
+
+    # Cheap hack: When we change a property, it MAY change a value (i.e. itself if we sanitize a path). This would create infinite recursion of the update callback.
+    # SO whenever we change a value via code in the update callback, set this value to True, then the update settings callback will exit out on the next call, and clear this flag, preventing infinite recurssion
+    was_programmatically_updated: bpy.props.BoolProperty(
+        name="Was Programmatically Updated",
+        description="Internal flag to prevent infinite recursion when updating settings via code. If you are reading this, DO NOT TOUCH, thank you :)",
+        default=False
+    ) # type: ignore
+
+    alb_texture: bpy.props.StringProperty(
+        name="Albedo Texture",
+        description="The albedo texture",
+        default="",
+        subtype='FILE_PATH',
+        update=xplane_materials.operator_wrapped_update_settings
+    ) # type: ignore
+
+    material_texture: bpy.props.StringProperty(
+        name="Material Texture",
+        description="The material texture",
+        default="",
+        subtype='FILE_PATH',
+        update=xplane_materials.operator_wrapped_update_settings
+    ) # type: ignore
+
+    #If calling this from code, always set was_programmatically_updated to True first!!!
+    do_separate_material_texture: bpy.props.BoolProperty(
+        name="Use separate Material Texture",
+        description="Whether to use a separate material texture for the material",
+        default=False,
+        update=xplane_materials.operator_wrapped_update_settings
+    ) # type: ignore
+
+    normal_texture: bpy.props.StringProperty(
+        name="Normal Texture",
+        description="The normal texture",
+        default="",
+        subtype='FILE_PATH',
+        update=xplane_materials.operator_wrapped_update_settings
+    ) # type: ignore
+
+    normal_tile_ratio: bpy.props.FloatProperty(
+        name="Normal Tile Ratio",
+        description="The number of times the normal tiles to the albedo",
+        default=1,
+        min=0,
+        update=xplane_materials.operator_wrapped_update_settings
+    ) # type: ignore
+
+    lit_texture: bpy.props.StringProperty(
+        name="Lit Texture",
+        description="The lit texture",
+        default="",
+        subtype='FILE_PATH',
+        update=xplane_materials.operator_wrapped_update_settings
+    ) # type: ignore
+
+    weather_texture: bpy.props.StringProperty(
+        name="Weather Texture",
+        description="The texture used to control weather effects",
+        default="",
+        subtype='FILE_PATH',
+        update=xplane_materials.operator_wrapped_update_settings
+    ) # type: ignore
 
     # --- cockpit_device props ------------------------------------------------
     device_name: bpy.props.EnumProperty(
@@ -2478,9 +2287,7 @@ class XPlaneMaterialSettings(bpy.types.PropertyGroup):
         name = "Draped",
         description = "Will perfectly match with the ground",
         default = False
-    )
-
-
+    ) #type: ignore
 
     # v1000 (draped only)
     bump_level: bpy.props.FloatProperty(
@@ -2489,9 +2296,7 @@ class XPlaneMaterialSettings(bpy.types.PropertyGroup):
         default = 1.0,
         min = -2.0,
         max = 2.0
-    )
-
-
+    ) #type: ignore
 
 class XPlaneLightSettings(bpy.types.PropertyGroup):
     enable_rgb_override: bpy.props.BoolProperty(
@@ -2604,6 +2409,32 @@ class XPlaneLightSettings(bpy.types.PropertyGroup):
         type = XPlaneCustomAttribute
     )
 # fmt: on
+
+#This code is for sad blender reasons. In Blender, Enum properties reference by *index* so if collections are added or removed, then the collection the user has selected changes
+#So we can't used indexes. But we don't want users to have to type collection names. So we have a string property that we add to the UI with a prop_search
+#Prop_serach however needs data. And that data cannot be updated in the UI due to Blender limits. Soo we have to have a handler that gets called *every time the scene changes* *cries in excess code* to keep the list up to date
+#And that is what this code is. @persistent is a decorator that makes Blender keep the function even after a file is loaded/closed or whatever vs just that session.
+@persistent
+def update_fac_spelling_choices():
+    for col in bpy.data.collections:
+        if col.xp_fac:
+            if col.xp_fac.exportable:
+                # Clear the existing list
+                col.xp_fac.spelling_choices.clear()
+
+                #Remove _Curved collections since they are autodetected
+                for add_col in bpy.data.collections:
+                    if not add_col.name.endswith("_Curved"):
+                        item = col.xp_fac.spelling_choices.add()
+                        item.name = add_col.name
+
+@persistent
+def update_fac_spelling_choices_depgraph_handler(scene):
+    update_fac_spelling_choices()
+
+@persistent
+def update_fac_spelling_choices_load_handler(in_file_path, in_startup_file_path):
+    update_fac_spelling_choices()
 
 
 _classes = (

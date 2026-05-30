@@ -83,6 +83,12 @@ EXPORT_TYPE_AIRCRAFT = "aircraft"
 EXPORT_TYPE_COCKPIT = "cockpit"
 EXPORT_TYPE_SCENERY = "scenery"
 EXPORT_TYPE_INSTANCED_SCENERY = "instanced_scenery"
+EXPORT_TYPE_AGP = "agp"
+EXPORT_TYPE_FACADE = "facade"
+EXPORT_TYPE_FOREST = "forest"
+EXPORT_TYPE_LINE = "line"
+EXPORT_TYPE_POLYGON = "polygon"
+
 
 ANIM_TYPE_TRANSFORM = "transform"
 ANIM_TYPE_SHOW = "show"

@@ -16,6 +16,8 @@ from .xplane_ops import *
 from .xplane_props import *
 from .xplane_helpers import is_path_decal_lib
 
+bpy.types.Collection.xplane = XPlaneCollectionSettings() #type: ignore
+
 
 class DATA_PT_xplane(bpy.types.Panel):
     """X-Plane Empty/Light Data Panel"""
@@ -189,7 +191,6 @@ class OBJECT_PT_xplane(bpy.types.Panel):
         version = int(context.scene.xplane.version)
 
         if obj.type in ("MESH", "EMPTY", "ARMATURE", "LIGHT"):
-            object_layer_layout(self.layout, obj)
 
             animation_layout(self.layout, obj)
             if obj.type == "MESH":
@@ -331,6 +332,571 @@ def rain_layout(
             break
 
 
+def fac_spelling_entry_layout(layout: bpy.types.UILayout, entry, collection_name : str, floor_index : int, wall_index : int, spelling_index : int, entry_index : int):
+    row = layout.row()
+    #row.prop(entry, "collection", text="Segment")
+
+    #Find this collection in the collection list
+    col : bpy.types.Collection | None = None
+    for collection in bpy.data.collections:
+        if collection.name == collection_name:
+            col = collection
+            break
+    if col is None:
+        raise ValueError(f"Collection '{collection_name}' not found in bpy.data.collections.")
+        return
+
+    row.prop_search(entry, "collection", col.xplane.fac, "spelling_choices")
+    btn_rem = row.operator("xplane.add_rem_fac", text="", icon='X')
+    btn_rem.collection_name = collection_name
+    btn_rem.floor_index = floor_index
+    btn_rem.wall_index = wall_index
+    btn_rem.spelling_index = spelling_index
+    btn_rem.spelling_entry_index = entry_index
+    btn_rem.level = "spelling_entry"
+    btn_rem.add = False
+
+def fac_spelling_layout(layout: bpy.types.UILayout, spelling : XPlaneFacadeSpelling, collection_name : str, floor_index: int, wall_index: int, spelling_index: int, spelling_len: int):
+    box = layout.box()
+    row = box.row()
+
+    row.prop(spelling, "is_ui_expanded", text=f"Spelling {spelling_index + 1}", icon='TRIA_DOWN' if spelling.is_ui_expanded else 'TRIA_RIGHT', emboss=False)
+    
+    if spelling_index != 0:
+        btn_swap_up = row.operator("xplane.fac_swap_spellings", text="", icon='TRIA_UP')
+        btn_swap_up.collection_name = collection_name
+        btn_swap_up.floor_index = floor_index
+        btn_swap_up.wall_index = wall_index
+        btn_swap_up.spelling_index_1 = spelling_index - 1
+        btn_swap_up.spelling_index_2 = spelling_index
+
+    if spelling_index != spelling_len - 1:
+        btn_swap_down = row.operator("xplane.fac_swap_spellings", text="", icon='TRIA_DOWN')
+        btn_swap_down.collection_name = collection_name
+        btn_swap_down.floor_index = floor_index
+        btn_swap_down.wall_index = wall_index
+        btn_swap_down.spelling_index_1 = spelling_index
+        btn_swap_down.spelling_index_2 = spelling_index + 1
+
+    btn_rem = row.operator("xplane.add_rem_fac", text="", icon='X')
+    btn_rem.collection_name = collection_name
+    btn_rem.floor_index = floor_index
+    btn_rem.wall_index = wall_index
+    btn_rem.spelling_index = spelling_index
+    btn_rem.level = "spelling"
+    btn_rem.add = False
+    
+    if spelling.is_ui_expanded:
+        for i, entry in enumerate(spelling.entries):
+            fac_spelling_entry_layout(box, entry, collection_name, floor_index, wall_index, spelling_index, i)
+
+        row = box.row()
+
+        btn_add = row.operator("xplane.add_rem_fac", text="Add Segment", icon='ADD')
+        btn_add.collection_name = collection_name
+        btn_add.floor_index = floor_index
+        btn_add.wall_index = wall_index
+        btn_add.spelling_index = spelling_index
+        btn_add.spelling_entry_index = len(spelling.entries)
+        btn_add.level = "spelling_entry"
+        btn_add.add = True
+
+        btn_duplicate = row.operator("xplane.fac_duplicate_spelling", text="Duplicate Spelling", icon='DUPLICATE')
+        btn_duplicate.collection_name = collection_name
+        btn_duplicate.floor_index = floor_index
+        btn_duplicate.wall_index = wall_index
+        btn_duplicate.spelling_index = spelling_index
+
+def fac_wall_layout(layout: bpy.types.UILayout, wall : XPlaneFacadeWall, collection_name : str, floor_index: int, wall_index: int, wall_len: int):
+    box = layout.box()
+    row = box.row()
+    row.prop(wall, "is_ui_expanded", text=wall.name, icon='TRIA_DOWN' if wall.is_ui_expanded else 'TRIA_RIGHT', emboss=False)
+
+    if wall_index != 0:
+        btn_swap_up = row.operator("xplane.fac_swap_walls", text="", icon='TRIA_UP')
+        btn_swap_up.collection_name = collection_name
+        btn_swap_up.floor_index = floor_index
+        btn_swap_up.wall_index_1 = wall_index - 1
+        btn_swap_up.wall_index_2 = wall_index
+
+    if wall_index != wall_len - 1:
+        btn_swap_down = row.operator("xplane.fac_swap_walls", text="", icon='TRIA_DOWN')
+        btn_swap_down.collection_name = collection_name
+        btn_swap_down.floor_index = floor_index
+        btn_swap_down.wall_index_1 = wall_index
+        btn_swap_down.wall_index_2 = wall_index + 1
+
+    btn_rem = row.operator("xplane.add_rem_fac", text="", icon='X')
+    btn_rem.collection_name = collection_name
+    btn_rem.floor_index = floor_index
+    btn_rem.wall_index = wall_index
+    btn_rem.level = "wall"
+    btn_rem.add = False
+
+    if wall.is_ui_expanded:
+        box.prop(wall, "name", text="Name")
+        row = box.row()
+        row.prop(wall, "min_length", text="Min Length")
+        row.prop(wall, "max_length", text="Max Length")
+        row = box.row()
+        row.prop(wall, "min_heading", text="Min Heading")
+        row.prop(wall, "max_heading", text="Max Heading")
+
+        box.label(text="Wall Spellings")
+
+        for i, spelling in enumerate(wall.spellings):
+            fac_spelling_layout(box, spelling, collection_name, floor_index, wall_index, i, len(wall.spellings))
+
+        box.separator()
+
+        row=box.row()
+
+        btn_add = row.operator("xplane.add_rem_fac", text="Add Spelling", icon='ADD')
+        btn_add.collection_name = collection_name
+        btn_add.floor_index = floor_index
+        btn_add.wall_index = wall_index
+        btn_add.spelling_index = len(wall.spellings)
+        btn_add.level = "spelling"
+        btn_add.add = True
+        btn_add.duplicate = False
+
+        btn_duplicate = row.operator("xplane.fac_duplicate_wall", text="Duplicate Wall", icon='DUPLICATE')
+        btn_duplicate.collection_name = collection_name
+        btn_duplicate.floor_index = floor_index
+        btn_duplicate.wall_index = wall_index
+
+def fac_floor_layout(layout: bpy.types.UILayout, floor : XPlaneFacadeFloor, collection_name : str, floor_index: int, floor_len: int):
+    #Get the collection from the collection name
+    col = None
+    for collection in bpy.data.collections:
+        if collection.name == collection_name:
+            col = collection
+            break
+
+    box = layout.box()
+    row = box.row()
+    row.prop(floor, "is_ui_expanded", text=floor.name, icon='TRIA_DOWN' if floor.is_ui_expanded else 'TRIA_RIGHT', emboss=False)
+
+    if floor_index != 0:
+        btn_swap_up = row.operator("xplane.fac_swap_floors", text="", icon='TRIA_UP')
+        btn_swap_up.collection_name = collection_name
+        btn_swap_up.floor_index_1 = floor_index - 1
+        btn_swap_up.floor_index_2 = floor_index
+
+    if floor_index != floor_len - 1:
+        btn_swap_down = row.operator("xplane.fac_swap_floors", text="", icon='TRIA_DOWN')
+        btn_swap_down.collection_name = collection_name
+        btn_swap_down.floor_index_1 = floor_index
+        btn_swap_down.floor_index_2 = floor_index + 1
+
+    btn_rem = row.operator("xplane.add_rem_fac", text="", icon='X')
+    btn_rem.collection_name = collection_name
+    btn_rem.floor_index = floor_index
+    btn_rem.level = "floor"
+    btn_rem.add = False
+
+    if floor.is_ui_expanded:
+        box.label(text=f"Floor")
+        box.prop(floor, "name", text="Name")
+        box.prop_search(floor, "roof_collection", col.xplane.fac, "spelling_choices", text="Roof Collection")
+        box.separator()
+        box.label(text="Wall Rules:")
+
+        for i, wall in enumerate(floor.walls):
+            fac_wall_layout(box, wall, collection_name, floor_index, i, len(floor.walls))
+
+        box.separator()
+
+        row = box.row()
+
+        btn_add = row.operator("xplane.add_rem_fac", text="Add Wall", icon='ADD')
+        btn_add.collection_name = collection_name
+        btn_add.floor_index = floor_index
+        btn_add.wall_index = len(floor.walls)
+        btn_add.level = "wall"
+        btn_add.add = True
+
+        btn_duplicate = row.operator("xplane.fac_duplicate_floor", text="Duplicate Floor", icon='DUPLICATE')
+        btn_duplicate.collection_name = collection_name
+        btn_duplicate.floor_index = floor_index
+
+def obj_layout(
+    layout: bpy.types.UILayout,
+    col: bpy.types.Collection,
+    version: int
+):
+    """Draws OBJ File Settings and advanced options"""
+    import typing
+    xplane = col.xplane #type: ignore
+    obj = col.xplane.obj #type: ignore
+
+    canHaveDraped = version >= 1000 and xplane.export_type not in [
+        "aircraft",
+        "cockpit",
+    ]
+    isInstanced = version >= 1000 and xplane.export_type == "instanced_scenery"
+    canHaveSceneryProps = xplane.export_type not in ["aircraft", "cockpit"]
+      
+    global_mat_box = layout.box()
+    global_mat_box.label(text="Global Material Options")
+    if version >= 1100:
+        global_mat_box.row().prop(obj, "blend_glass")
+        global_mat_box.row().prop(obj, "normal_metalness")
+    if version >= 1200:
+        row = global_mat_box.row(align=True)
+        row.active = obj.luminance_override
+        row.prop(obj, "luminance_override", text="")
+        row.prop(obj, "luminance")
+    if version >= 1100:
+        if obj.export_type in {
+            EXPORT_TYPE_INSTANCED_SCENERY,
+            EXPORT_TYPE_SCENERY,
+        }:
+            global_mat_box.row().prop(obj, "normal_metalness_draped")
+            row = global_mat_box.row()
+            row.active = obj.tint
+            row.prop(obj, "tint")
+            if obj.tint:
+                row.prop(obj, "tint_albedo", text="Albedo", slider=True)
+                row.prop(obj, "tint_emissive", text="Emissive", slider=True)
+
+    # cockpit regions
+    if xplane.export_type in {EXPORT_TYPE_AIRCRAFT, EXPORT_TYPE_COCKPIT}:
+        cockpit_box = layout.box()
+        cockpit_box.label(text="Cockpit Panel Options")
+        if version >= 1110:
+            cockpit_box.row().prop(obj, "cockpit_panel_mode")
+
+        if obj.cockpit_panel_mode == PANEL_COCKPIT:
+            pass
+        elif (
+            version >= 1110 and obj.cockpit_panel_mode == PANEL_COCKPIT_LIT_ONLY
+        ):
+            pass
+        elif obj.cockpit_panel_mode == PANEL_COCKPIT_REGION or version < 1110:
+            cockpit_box.prop(obj, "cockpit_regions", text="Regions")
+            for i, cockpit_region in enumerate(
+                obj.cockpit_region[: int(obj.cockpit_regions)]
+            ):
+                region_box = cockpit_box.box()
+                region_box.prop(
+                    cockpit_region,
+                    "expanded",
+                    text="Cockpit region %i" % (i + 1),
+                    expand=True,
+                    emboss=False,
+                    icon=("TRIA_DOWN" if cockpit_region.expanded else "TRIA_RIGHT"),
+                )
+
+                if cockpit_region.expanded:
+                    region_box.prop(cockpit_region, "left")
+                    region_box.prop(cockpit_region, "top")
+                    region_split = region_box.split(factor=0.5)
+                    region_split.prop(cockpit_region, "width")
+                    region_split.label(text="= %d" % (2 ** cockpit_region.width))
+                    region_split = region_box.split(factor=0.5)
+                    region_split.prop(cockpit_region, "height")
+                    region_split.label(text="= %d" % (2 ** cockpit_region.height))
+
+        # v1010
+        if version < 1100:
+            # cockpit_lit
+            cockpit_lit_box = cockpit_box.row()
+            cockpit_lit_box.prop(obj, "cockpit_lit")
+    # LODs
+    lods_box = layout.box()
+    lods_box.label(text="Levels of Detail")
+    lods_box.prop(obj, "lods", text="LODs")
+    num_lods = int(obj.lods)
+
+    if num_lods:
+        # Bad naming, I know
+        for i, lod in enumerate(obj.lod[:num_lods]):
+            if lod.expanded:
+                expandIcon = "TRIA_DOWN"
+            else:
+                expandIcon = "TRIA_RIGHT"
+
+            lod_box = lods_box.box()
+            lod_box.prop(
+                lod,
+                "expanded",
+                text="Level of detail %i" % (i + 1),
+                expand=True,
+                emboss=False,
+                icon=expandIcon,
+            )
+
+            if lod.expanded:
+                lod_box.prop(lod, "near")
+                lod_box.prop(lod, "far")
+
+    if canHaveDraped:
+        lods_box.prop(obj, "lod_draped")
+
+    if canHaveSceneryProps:
+        # Scenery Properties Group
+        scenery_props_group_box = layout.box()
+        scenery_props_group_box.label(text="Scenery Properties")
+
+        layer_group_box = scenery_props_group_box.box()
+        layer_group_box.label(text="Layer Grouping")
+        layer_group_box.prop(obj, "layer_group")
+        layer_group_box.prop(obj, "layer_group_offset")
+
+        if canHaveDraped:
+            layer_group_box.prop(obj, "layer_group_draped")
+            layer_group_box.prop(obj, "layer_group_draped_offset")
+
+        # v1000
+        if version >= 1000:
+            # slope_limit
+            slope_box = scenery_props_group_box.box()
+            slope_box.label(text="Slope Properties")
+            slope_box.prop(obj, "slope_limit")
+
+            if obj.slope_limit == True:
+                slope_box.row().prop(obj, "slope_limit_min_pitch")
+                slope_box.row().prop(obj, "slope_limit_max_pitch")
+                slope_box.row().prop(obj, "slope_limit_min_roll")
+                slope_box.row().prop(obj, "slope_limit_max_roll")
+
+            # tilted
+            slope_box.prop(obj, "tilted")
+
+            # require surface
+            require_box = scenery_props_group_box.row()
+            require_box.prop(obj, "require_surface", text="Require surface")
+
+    # Advanced Options
+    advanced_box = layout.box()
+    advanced_box.label(text="Advanced Options")
+    if version >= 1130:
+        advanced_box.prop(
+            obj, "particle_system_file", text="Particle System File"
+        )
+    advanced_box.prop(obj, "slungLoadWeight")
+
+    if version >= 1200 and obj.export_type in { EXPORT_TYPE_AIRCRAFT, EXPORT_TYPE_COCKPIT }:
+        rain_box = advanced_box.box()
+        rain_box.label(text="Rain Options")
+        rain_layout(rain_box, obj, version)
+
+    advanced_box.prop(obj, "debug")
+
+def agp_layout(
+    layout: bpy.types.UILayout,
+    col: bpy.types.Collection,
+    version: int
+):
+    agp = col.xplane.agp #type: ignore
+
+    layout.prop(agp, "render_tiles")
+    layout.prop(agp, "tile_lod")
+
+    layout.separator()
+
+    layout.prop(agp, "vegetation_asset")
+
+    layout.separator()
+    layout.prop(agp, "is_texture_tiling")
+
+    if agp.is_texture_tiling:
+        row = layout.row()
+        row.prop(agp, "texture_tiling_x_pages")
+        row.prop(agp, "texture_tiling_y_pages")
+        row = layout.row()
+        row.prop(agp, "texture_tiling_map_x_res")
+        row.prop(agp, "texture_tiling_map_y_res")
+        layout.prop(agp, "texture_tiling_map_texture")
+
+def fac_layout(
+    layout: bpy.types.UILayout,
+    col: bpy.types.Collection,
+    version: int
+):
+    xplane : XPlaneCollectionSettings = col.__getattribute__("xplane")
+    fac : XPlaneFacadeCollection = xplane.fac
+
+    layout.label(text="Global Properties:")
+    layout.prop(fac, "graded")
+    layout.prop(fac, "ring")
+
+    layout.separator()
+
+    #Wall properties-----------------------------------------------------------------------------------------
+
+    wall_box = layout.box()
+
+    wall_box.label(text="Wall Properties:")
+    wall_box.prop(fac, "render_wall")
+    if fac.render_wall:
+        wall_box.prop(fac, "wall_material")
+
+    layout.separator()
+
+    #Roof properties-----------------------------------------------------------------------------------------
+
+    roof_box = layout.box()
+
+    roof_box.label(text="Roof Properties:")
+    roof_box.prop(fac, "render_roof")
+    if fac.render_roof:
+        roof_box.prop(fac, "roof_material")
+
+    layout.separator()
+
+    #Wall spellings-----------------------------------------------------------------------------------------
+
+    spelling_box = layout.box()
+    spelling_box.label(text="Floor Definitions:")
+    for i, floor in enumerate(fac.floors):
+        if floor.name == "":
+            floor.name = f"Floor {i}"
+        fac_floor_layout(spelling_box, floor, col.name, i, len(fac.floors))
+    
+    btn_add = spelling_box.operator("xplane.add_rem_fac", text="Add Floor", icon='ADD')
+    btn_add.collection_name = col.name
+    btn_add.floor_index = len(fac.floors)
+    btn_add.level = "floor"
+    btn_add.add = True
+
+def for_layout(
+    layout: bpy.types.UILayout,
+    col: bpy.types.Collection,
+    version: int
+):
+    xplane : XPlaneCollectionSettings = col.__getattribute__("xplane")
+    forest : XPlaneLineCollection = xplane.forest
+
+def lin_layout(
+    layout: bpy.types.UILayout,
+    col: bpy.types.Collection,
+    version: int
+):
+    lin = col.xplane.lin #type: ignore
+
+    layout.prop(lin, "name")
+    layout.prop(lin, "mirror")
+    layout.prop(lin, "segment_count")
+
+def pol_layout(
+    layout: bpy.types.UILayout,
+    col: bpy.types.Collection,
+    version: int
+):
+    pol = col.xplane.pol #type: ignore
+
+    layout.prop(pol, "texture_is_nowrap")
+    layout.separator()
+    layout.prop(pol, "is_load_centered")
+
+    if pol.is_load_centered:
+        row = layout.row()
+        row.prop(pol, "load_center_lat")
+        row.prop(pol, "load_center_lon")
+        layout.prop(pol, "load_center_resolution")
+        layout.prop(pol, "load_center_size")
+
+    layout.separator()
+    layout.prop(pol, "is_texture_tiling")
+
+    if pol.is_texture_tiling:
+        row = layout.row()
+        row.prop(pol, "texture_tiling_x_pages")
+        row.prop(pol, "texture_tiling_y_pages")
+        row = layout.row()
+        row.prop(pol, "texture_tiling_map_x_res")
+        row.prop(pol, "texture_tiling_map_y_res")
+        layout.prop(pol, "texture_tiling_map_texture")
+
+    layout.separator()
+    layout.prop(pol, "is_runway_markings")
+
+    if pol.is_runway_markings:
+        row = layout.row()
+        row.prop(pol, "runway_markings_r")
+        row.prop(pol, "runway_markings_g")
+        row.prop(pol, "runway_markings_b")
+        row.prop(pol, "runway_markings_a")
+        layout.prop(pol, "runway_markings_texture")
+
+def custom_layer_layout(
+    layout: bpy.types.UILayout,
+    has_layer_props: Union[bpy.types.Collection, bpy.types.Object],
+    version: int,
+) -> None:
+    layout.separator()
+    row = layout.row()
+    row.label(text="Custom Properties")
+
+    if isinstance(has_layer_props, bpy.types.Collection):
+        row.operator(
+            "collection.add_xplane_layer_attribute"
+        ).collection_name = has_layer_props.name
+    elif isinstance(has_layer_props, bpy.types.Object):
+        row.operator("object.add_xplane_layer_attribute")
+    else:
+        assert False, f"has_layer_prop is an unknown type {type(has_layer_props)}"
+
+    box = layout.box()
+
+    for i, attr in enumerate(has_layer_props.xplane.layer.customAttributes):
+        subbox = box.box()
+        subrow = subbox.row()
+        subrow.prop(attr, "name")
+        subrow.prop(attr, "value")
+
+        if isinstance(has_layer_props, bpy.types.Collection):
+            remove_op = subrow.operator(
+                "collection.remove_xplane_layer_attribute",
+                text="",
+                emboss=False,
+                icon="X",
+            )
+            remove_op.collection_name = has_layer_props.name
+            remove_op.index = i
+        elif isinstance(has_layer_props, bpy.types.Object):
+            subrow.operator(
+                "object.remove_xplane_layer_attribute", text="", emboss=False, icon="X"
+            ).index = i
+
+        if type in ("MATERIAL", "MESH"):
+            subrow = subbox.row()
+            subrow.prop(attr, "reset")
+
+def collection_layer_layout(
+    layout: bpy.types.UILayout, collection: bpy.types.Collection
+):
+    xplane = collection.xplane #type: ignore
+    version = int(bpy.context.scene.xplane.version) #type: ignore
+    row = layout.row()
+    box = row.box()
+
+    
+    column = box.column_flow(columns=2, align=True)
+    column.prop(xplane, "expanded", text=collection.name, icon='TRIA_DOWN' if xplane.expanded else 'TRIA_RIGHT', emboss=False)
+    column.prop(xplane, "is_exportable_collection", text = "Export")
+
+    if xplane.expanded:
+        layout.prop(xplane, "name")
+        layout.prop(xplane, "export_type")
+
+        if xplane.export_type in {EXPORT_TYPE_AIRCRAFT, EXPORT_TYPE_COCKPIT, EXPORT_TYPE_SCENERY, EXPORT_TYPE_INSTANCED_SCENERY}:
+            obj_layout(box, xplane, version)
+            export_path_dir_layer_layout(box, collection, version)
+            custom_layer_layout(box, collection, version)
+        elif xplane.export_type == EXPORT_TYPE_AGP:
+            agp_layout(box, xplane, version)
+        elif xplane.export_type == EXPORT_TYPE_FACADE:
+            fac_layout(box, collection, version)
+        elif xplane.export_type == EXPORT_TYPE_FOREST:
+            for_layout(box, collection, version)
+        elif xplane.export_type == EXPORT_TYPE_LINE:
+            lin_layout(box, collection, version)
+        elif xplane.export_type == EXPORT_TYPE_POLYGON:
+            pol_layout(box, collection, version)
+
 def scene_layout(layout: bpy.types.UILayout, scene: bpy.types.Scene):
     layout.row().operator("scene.export_to_relative_dir", icon="EXPORT")
     row = layout.row()
@@ -375,13 +941,13 @@ def scene_layout(layout: bpy.types.UILayout, scene: bpy.types.Scene):
         layout.row().label(text="     Make backups or switch to a more stable release!")
 
     exp_box = layout.box()
-    exp_box.label(text="Root Collections")
-    for collection in [
-        coll
-        for coll in xplane_helpers.get_collections_in_scene(scene)[1:]
-        if coll.xplane.is_exportable_collection
-    ]:
-        collection_layer_layout(exp_box, collection)
+    exp_box.label(text="Exportable Collections")
+    exp_box.prop(scene.xplane, "exportable_collection_search")
+    exp_box.separator()
+    for collection in xplane_helpers.get_collections_in_scene(scene)[1:]:
+        if collection.xplane.is_exportable_collection:
+            if scene.xplane.exportable_collection_search == "" or (collection.name.startswith(scene.xplane.exportable_collection_search) or collection.name.endswith(scene.xplane.exportable_collection_search)):
+                collection_layer_layout(exp_box, collection)
 
     non_exp_box = layout.box()
 
@@ -394,13 +960,10 @@ def scene_layout(layout: bpy.types.UILayout, scene: bpy.types.Scene):
         if scene.xplane.expanded_non_exporting_collections
         else "TRIA_RIGHT",
     )
-    if scene.xplane.expanded_non_exporting_collections:
-        for collection in [
-            coll
-            for coll in xplane_helpers.get_collections_in_scene(scene)[1:]
-            if not coll.xplane.is_exportable_collection
-        ]:
-            collection_layer_layout(non_exp_box, collection)
+    for collection in xplane_helpers.get_collections_in_scene(scene)[1:]:
+        if not collection.xplane.is_exportable_collection:
+            if scene.xplane.exportable_collection_search == "" or (collection.name.startswith(scene.xplane.exportable_collection_search) or collection.name.endswith(scene.xplane.exportable_collection_search)):
+                collection_layer_layout(non_exp_box, collection)
 
     advanced_box = layout.box()
     advanced_box.label(text="Advanced Settings")
@@ -463,525 +1026,6 @@ def scene_dev_layout(layout: bpy.types.UILayout, scene: bpy.types.Scene):
                 icon_str = "FILE_TICK"
 
             history_box.label(text=str(entry), icon=icon_str)
-
-
-def collection_layer_layout(
-    layout: bpy.types.UILayout, collection: bpy.types.Collection
-):
-    version = int(bpy.context.scene.xplane.version)
-    layer_props = collection.xplane.layer
-    row = layout.row()
-    box = row.box()
-
-    if layer_props.expanded:
-        expandIcon = "TRIA_DOWN"
-    else:
-        expandIcon = "TRIA_RIGHT"
-    column = box.column_flow(columns=2, align=True)
-    column.prop(
-        layer_props,
-        "expanded",
-        text=collection.name,
-        expand=True,
-        emboss=False,
-        icon=expandIcon,
-    )
-    column.prop(collection.xplane, "is_exportable_collection")  # , text = "Export)
-
-    if layer_props.expanded:
-        layer_layout(box, layer_props, version, "object")
-        export_path_dir_layer_layout(box, collection, version)
-        custom_layer_layout(box, collection, version)
-
-
-def object_layer_layout(layout: bpy.types.UILayout, obj: bpy.types.Object):
-    version = int(bpy.context.scene.xplane.version)
-    layer_props = obj.xplane.layer
-    row = layout.row()
-
-    row.prop(obj.xplane, "isExportableRoot")
-
-    if obj.xplane.isExportableRoot:
-        row = layout.row()
-        box = row.box()
-
-        if layer_props.expanded:
-            expandIcon = "TRIA_DOWN"
-            expanded = True
-        else:
-            expandIcon = "TRIA_RIGHT"
-            expanded = False
-
-        box.prop(
-            layer_props,
-            "expanded",
-            text="Root Object",
-            expand=True,
-            emboss=False,
-            icon=expandIcon,
-        )
-
-        if expanded:
-            layer_layout(box, layer_props, version, "object")
-            export_path_dir_layer_layout(box, obj, version)
-            custom_layer_layout(box, obj, version)
-
-
-def layer_layout(
-    layout: bpy.types.UILayout,
-    layer_props: xplane_props.XPlaneLayer,
-    version: int,
-    context: str,
-):
-    """Draws OBJ File Settings and advanced options"""
-    canHaveDraped = version >= 1000 and layer_props.export_type not in [
-        "aircraft",
-        "cockpit",
-    ]
-    isInstanced = version >= 1000 and layer_props.export_type == "instanced_scenery"
-    canHaveSceneryProps = layer_props.export_type not in ["aircraft", "cockpit"]
-
-    # column = layout.column()
-    layout.prop(layer_props, "name")
-    layout.prop(layer_props, "export_type")
-
-    tex_box = layout.box()
-    tex_box.label(text="Textures")
-    # tex_box.prop(layer_props, "autodetectTextures")
-    # if not layer_props.autodetectTextures:
-    if True:  # Hack until autodetectTextures means something again
-        tex_box.prop(layer_props, "texture", text="Default")
-        tex_box.prop(layer_props, "texture_lit", text="Night")
-        tex_box.prop(layer_props, "texture_normal", text="Normal / Specular")
-        if version >= 1200:
-            tex_box.prop(layer_props, "texture_map_normal", text='Normal')
-            tex_box.prop(layer_props, "texture_map_material_gloss", text='Material / Gloss')
-            tex_box.prop(layer_props, "texture_map_gloss", text='Gloss')
-
-        if canHaveDraped:
-            tex_box.prop(layer_props, "texture_draped", text="Draped")
-            tex_box.prop(
-                layer_props, "texture_draped_normal", text="Draped Normal / Specular"
-            )
-            
-    if version >= 1210:
-        decal_box = layout.box()
-        decal_box.label(text="Detail Textures")
-        
-        decal_box.prop(layer_props, "file_decal1", text="Detail Texture 1")
-
-        if layer_props.file_decal1 and not is_path_decal_lib(layer_props.file_decal1):
-            decal1_row_1 = decal_box.row()
-            
-            decal1_row_1.prop(layer_props, "decal1_projected", text="Projected")
-
-            if layer_props.decal1_projected:
-                decal1_row_1.prop(layer_props, "decal1_x_scale", text="X Scale")
-                decal1_row_1.prop(layer_props, "decal1_y_scale", text="Y Scale")
-            else:
-                decal1_row_1.prop(layer_props, "decal1_scale", text="Scale")
-            
-            decal1_row_2 = decal_box.row()
-
-            decal1_column_1 = decal1_row_2.column()
-            
-            decal1_column_1.prop(layer_props, "rgb_decal1_red_key", text="RGB Detail Texture Red Key")
-            decal1_column_1.prop(layer_props, "rgb_decal1_green_key", text="RGB Detail Texture Green Key")
-            decal1_column_1.prop(layer_props, "rgb_decal1_blue_key", text="RGB Detail Texture Blue Key")
-            decal1_column_1.prop(layer_props, "rgb_decal1_alpha_key", text="RGB Detail Texture Alpha Key")
-            decal1_column_1.prop(layer_props, "rgb_decal1_modulator", text="RGB Detail Texture Modulator Strength")
-            decal1_column_1.prop(layer_props, "rgb_decal1_constant", text="RGB Detail Texture Constant Strength")
-
-            decal1_column_2 = decal1_row_2.column()
-        
-            decal1_column_2.prop(layer_props, "alpha_decal1_red_key", text="Alpha Detail Texture Red Key")
-            decal1_column_2.prop(layer_props, "alpha_decal1_green_key", text="Alpha Detail Texture Green Key")
-            decal1_column_2.prop(layer_props, "alpha_decal1_blue_key", text="Alpha Detail Texture Blue Key")
-            decal1_column_2.prop(layer_props, "alpha_decal1_alpha_key", text="Alpha Detail Texture Alpha Key")
-            decal1_column_2.prop(layer_props, "alpha_decal1_modulator", text="Alpha Detail Texture Modulator Strength")
-            decal1_column_2.prop(layer_props, "alpha_decal1_constant", text="Alpha Detail Texture Constant Strength")
-
-        decal_box.prop(layer_props, "file_decal2", text="Detail Texture 2")
-        
-        if layer_props.file_decal2 and not is_path_decal_lib(layer_props.file_decal2):
-            decal2_row_1 = decal_box.row()
-            
-            decal2_row_1.prop(layer_props, "decal2_projected", text="Projected")
-
-            if layer_props.decal2_projected:
-                decal2_row_1.prop(layer_props, "decal2_x_scale", text="X Scale")
-                decal2_row_1.prop(layer_props, "decal2_y_scale", text="Y Scale")
-            else:
-                decal2_row_1.prop(layer_props, "decal2_scale", text="Scale")
-            
-            decal2_row_2 = decal_box.row()
-    
-            decal2_column_1 = decal2_row_2.column()
-        
-            decal2_column_1.prop(layer_props, "rgb_decal2_red_key", text="RGB Detail Texture Red Key")
-            decal2_column_1.prop(layer_props, "rgb_decal2_green_key", text="RGB Detail Texture Green Key")
-            decal2_column_1.prop(layer_props, "rgb_decal2_blue_key", text="RGB Detail Texture Blue Key")
-            decal2_column_1.prop(layer_props, "rgb_decal2_alpha_key", text="RGB Detail Texture Alpha Key")
-            decal2_column_1.prop(layer_props, "rgb_decal2_modulator", text="RGB Detail Texture Modulator Strength")
-            decal2_column_1.prop(layer_props, "rgb_decal2_constant", text="RGB Detail Texture Constant Strength")
-
-            decal2_column_2 = decal2_row_2.column()
-        
-            decal2_column_2.prop(layer_props, "alpha_decal2_red_key", text="Alpha Detail Texture Red Key")
-            decal2_column_2.prop(layer_props, "alpha_decal2_green_key", text="Alpha Detail Texture Green Key")
-            decal2_column_2.prop(layer_props, "alpha_decal2_blue_key", text="Alpha Detail Texture Blue Key")
-            decal2_column_2.prop(layer_props, "alpha_decal2_alpha_key", text="Alpha Detail Texture Alpha Key")
-            decal2_column_2.prop(layer_props, "alpha_decal2_modulator", text="Alpha Detail Texture Modulator Strength")
-            decal2_column_2.prop(layer_props, "alpha_decal2_constant", text="Alpha Detail Texture Constant Strength")
-
-        if canHaveDraped:
-            decal_box.prop(layer_props, "file_draped_decal1", text="Draped Detail Texture 1")
-            
-            if layer_props.file_draped_decal1 and not is_path_decal_lib(layer_props.file_draped_decal1):
-                draped_decal1_row_1 = decal_box.row()
-            
-                draped_decal1_row_1.prop(layer_props, "draped_decal1_projected", text="Projected")
-
-                if layer_props.draped_decal1_projected:
-                    draped_decal1_row_1.prop(layer_props, "draped_decal1_x_scale", text="X Scale")
-                    draped_decal1_row_1.prop(layer_props, "draped_decal1_y_scale", text="Y Scale")
-                else:
-                    draped_decal1_row_1.prop(layer_props, "draped_decal1_scale", text="Scale")
-            
-                draped_decal1_row_2 = decal_box.row()
-    
-                draped_decal1_column_1 = draped_decal1_row_2.column()
-                
-                draped_decal1_column_1.prop(layer_props, "draped_rgb_decal1_red_key", text="RGB Detail Texture Red Key")
-                draped_decal1_column_1.prop(layer_props, "draped_rgb_decal1_green_key", text="RGB Detail Texture Green Key")
-                draped_decal1_column_1.prop(layer_props, "draped_rgb_decal1_blue_key", text="RGB Detail Texture Blue Key")
-                draped_decal1_column_1.prop(layer_props, "draped_rgb_decal1_alpha_key", text="RGB Detail Texture Alpha Key")
-                draped_decal1_column_1.prop(layer_props, "draped_rgb_decal1_modulator", text="RGB Detail Texture Modulator Strength")
-                draped_decal1_column_1.prop(layer_props, "draped_rgb_decal1_constant", text="RGB Detail Texture Constant Strength")
-
-                draped_decal1_column_2 = draped_decal1_row_2.column()
-                
-                draped_decal1_column_2.prop(layer_props, "draped_alpha_decal1_red_key", text="Alpha Detail Texture Red Key")
-                draped_decal1_column_2.prop(layer_props, "draped_alpha_decal1_green_key", text="Alpha Detail Texture Green Key")
-                draped_decal1_column_2.prop(layer_props, "draped_alpha_decal1_blue_key", text="Alpha Detail Texture Blue Key")
-                draped_decal1_column_2.prop(layer_props, "draped_alpha_decal1_alpha_key", text="Alpha Detail Texture Alpha Key")
-                draped_decal1_column_2.prop(layer_props, "draped_alpha_decal1_modulator", text="Alpha Detail Texture Modulator Strength")
-                draped_decal1_column_2.prop(layer_props, "draped_alpha_decal1_constant", text="Alpha Detail Texture Constant Strength")
-
-            decal_box.prop(layer_props, "file_draped_decal2", text="Draped Detail Texture 2")
-            
-            if layer_props.file_draped_decal2 and not is_path_decal_lib(layer_props.file_draped_decal2):
-                draped_decal2_row_1 = decal_box.row()
-            
-                draped_decal2_row_1.prop(layer_props, "draped_decal2_projected", text="Projected")
-
-                if layer_props.draped_decal2_projected:
-                    draped_decal2_row_1.prop(layer_props, "draped_decal2_x_scale", text="X Scale")
-                    draped_decal2_row_1.prop(layer_props, "draped_decal2_y_scale", text="Y Scale")
-                else:
-                    draped_decal2_row_1.prop(layer_props, "draped_decal2_scale", text="Scale")
-            
-                draped_decal2_row_2 = decal_box.row()
-                                
-                draped_decal2_column_1 = draped_decal2_row_2.column()
-
-                draped_decal2_column_1.prop(layer_props, "draped_rgb_decal2_red_key", text="RGB Detail Texture Red Key")
-                draped_decal2_column_1.prop(layer_props, "draped_rgb_decal2_green_key", text="RGB Detail Texture Green Key")
-                draped_decal2_column_1.prop(layer_props, "draped_rgb_decal2_blue_key", text="RGB Detail Texture Blue Key")
-                draped_decal2_column_1.prop(layer_props, "draped_rgb_decal2_alpha_key", text="RGB Detail Texture Alpha Key")
-                draped_decal2_column_1.prop(layer_props, "draped_rgb_decal2_modulator", text="RGB Detail Texture Modulator Strength")
-                draped_decal2_column_1.prop(layer_props, "draped_rgb_decal2_constant", text="RGB Detail Texture Constant Strength")
-
-                draped_decal2_column_2 = draped_decal2_row_2.column()
-                
-                draped_decal2_column_2.prop(layer_props, "draped_alpha_decal2_red_key", text="Alpha Detail Texture Red Key")
-                draped_decal2_column_2.prop(layer_props, "draped_alpha_decal2_green_key", text="Alpha Detail Texture Green Key")
-                draped_decal2_column_2.prop(layer_props, "draped_alpha_decal2_blue_key", text="Alpha Detail Texture Blue Key")
-                draped_decal2_column_2.prop(layer_props, "draped_alpha_decal2_alpha_key", text="Alpha Detail Texture Alpha Key")
-                draped_decal2_column_2.prop(layer_props, "draped_alpha_decal2_modulator", text="Alpha Detail Texture Modulator Strength")
-                draped_decal2_column_2.prop(layer_props, "draped_alpha_decal2_constant", text="Alpha Detail Texture Constant Strength")
-
-        decal_box.prop(layer_props, "file_normal_decal1", text="Normal Map Detail Texture 1")
-
-        if layer_props.file_normal_decal1:
-            normal_decal1_row = decal_box.row()
-
-            normal_decal1_row.prop(layer_props, "normal_decal1_projected", text="Projected")
-
-            if layer_props.normal_decal1_projected:
-                normal_decal1_row.prop(layer_props, "normal_decal1_x_scale", text="X Scale")
-                normal_decal1_row.prop(layer_props, "normal_decal1_y_scale", text="Y Scale")
-            else:
-                normal_decal1_row.prop(layer_props, "normal_decal1_scale", text="Scale")
-            
-            decal_box.prop(layer_props, "normal_decal1_red_key", text="Red Key")
-            decal_box.prop(layer_props, "normal_decal1_green_key", text="Green Key")
-            decal_box.prop(layer_props, "normal_decal1_blue_key", text="Blue Key")
-            decal_box.prop(layer_props, "normal_decal1_alpha_key", text="Alpha Key")
-            decal_box.prop(layer_props, "normal_decal1_modulator", text="Modulator Strength")
-            decal_box.prop(layer_props, "normal_decal1_constant", text="Constant Strength")
-        
-        decal_box.prop(layer_props, "file_normal_decal2", text="Normal Map Detail Texture 2")
-        
-        if layer_props.file_normal_decal2:
-            normal_decal2_row = decal_box.row()
-
-            normal_decal2_row.prop(layer_props, "normal_decal2_projected", text="Projected")
-
-            if layer_props.normal_decal2_projected:
-                normal_decal2_row.prop(layer_props, "normal_decal2_x_scale", text="X Scale")
-                normal_decal2_row.prop(layer_props, "normal_decal2_y_scale", text="Y Scale")
-            else:
-                normal_decal2_row.prop(layer_props, "normal_decal2_scale", text="Scale")
-            
-            decal_box.prop(layer_props, "normal_decal2_red_key", text="Red Key")
-            decal_box.prop(layer_props, "normal_decal2_green_key", text="Green Key")
-            decal_box.prop(layer_props, "normal_decal2_blue_key", text="Blue Key")
-            decal_box.prop(layer_props, "normal_decal2_alpha_key", text="Alpha Key")
-            decal_box.prop(layer_props, "normal_decal2_modulator", text="Modulator Strength")
-            decal_box.prop(layer_props, "normal_decal2_constant", text="Constant Strength")
-
-        if canHaveDraped:
-            decal_box.prop(layer_props, "file_draped_normal_decal1", text="Draped Normal Map Detail Texture 1")
-
-            if layer_props.file_draped_normal_decal1:
-                draped_normal_decal1_row = decal_box.row()
-
-                draped_normal_decal1_row.prop(layer_props, "draped_normal_decal1_projected", text="Projected")
-
-                if layer_props.draped_normal_decal1_projected:
-                    draped_normal_decal1_row.prop(layer_props, "draped_normal_decal1_x_scale", text="X Scale")
-                    draped_normal_decal1_row.prop(layer_props, "draped_normal_decal1_y_scale", text="Y Scale")
-                else:
-                    draped_normal_decal1_row.prop(layer_props, "draped_normal_decal1_scale", text="Scale")
-            
-                decal_box.prop(layer_props, "draped_normal_decal1_red_key", text="Red Key")
-                decal_box.prop(layer_props, "draped_normal_decal1_green_key", text="Green Key")
-                decal_box.prop(layer_props, "draped_normal_decal1_blue_key", text="Blue Key")
-                decal_box.prop(layer_props, "draped_normal_decal1_alpha_key", text="Alpha Key")
-                decal_box.prop(layer_props, "draped_normal_decal1_modulator", text="Modulator Strength")
-                decal_box.prop(layer_props, "draped_normal_decal1_constant", text="Constant Strength")
-        
-            decal_box.prop(layer_props, "file_draped_normal_decal2", text="Draped Normal Map Detail Texture 2")
-
-            if layer_props.file_draped_normal_decal2:
-                draped_normal_decal2_row = decal_box.row()
-
-                draped_normal_decal2_row.prop(layer_props, "draped_normal_decal2_projected", text="Projected")
-
-                if layer_props.draped_normal_decal2_projected:
-                    draped_normal_decal2_row.prop(layer_props, "draped_normal_decal2_x_scale", text="X Scale")
-                    draped_normal_decal2_row.prop(layer_props, "draped_normal_decal2_y_scale", text="Y Scale")
-                else:
-                    draped_normal_decal2_row.prop(layer_props, "draped_normal_decal2_scale", text="Scale")
-
-                decal_box.prop(layer_props, "draped_normal_decal2_red_key", text="Red Key")
-                decal_box.prop(layer_props, "draped_normal_decal2_green_key", text="Green Key")
-                decal_box.prop(layer_props, "draped_normal_decal2_blue_key", text="Blue Key")
-                decal_box.prop(layer_props, "draped_normal_decal2_alpha_key", text="Alpha Key")
-                decal_box.prop(layer_props, "draped_normal_decal2_modulator", text="Modulator Strength")
-                decal_box.prop(layer_props, "draped_normal_decal2_constant", text="Constant Strength")
-
-        decal_box.prop(layer_props, "texture_modulator", text="Modulator Texture")
-
-        if canHaveDraped:
-            decal_box.prop(layer_props, "texture_draped_modulator", text="Draped Modulator Texture")
-            
-    global_mat_box = layout.box()
-    global_mat_box.label(text="Global Material Options")
-    if version >= 1100:
-        global_mat_box.row().prop(layer_props, "blend_glass")
-        global_mat_box.row().prop(layer_props, "normal_metalness")
-    if version >= 1200:
-        row = global_mat_box.row(align=True)
-        row.active = layer_props.luminance_override
-        row.prop(layer_props, "luminance_override", text="")
-        row.prop(layer_props, "luminance")
-    if version >= 1100:
-        if layer_props.export_type in {
-            EXPORT_TYPE_INSTANCED_SCENERY,
-            EXPORT_TYPE_SCENERY,
-        }:
-            global_mat_box.row().prop(layer_props, "normal_metalness_draped")
-            row = global_mat_box.row()
-            row.active = layer_props.tint
-            row.prop(layer_props, "tint")
-            if layer_props.tint:
-                row.prop(layer_props, "tint_albedo", text="Albedo", slider=True)
-                row.prop(layer_props, "tint_emissive", text="Emissive", slider=True)
-
-    # cockpit regions
-    if layer_props.export_type in {EXPORT_TYPE_AIRCRAFT, EXPORT_TYPE_COCKPIT}:
-        cockpit_box = layout.box()
-        cockpit_box.label(text="Cockpit Panel Options")
-        if version >= 1110:
-            cockpit_box.row().prop(layer_props, "cockpit_panel_mode")
-
-        if layer_props.cockpit_panel_mode == PANEL_COCKPIT:
-            pass
-        elif (
-            version >= 1110 and layer_props.cockpit_panel_mode == PANEL_COCKPIT_LIT_ONLY
-        ):
-            pass
-        elif layer_props.cockpit_panel_mode == PANEL_COCKPIT_REGION or version < 1110:
-            cockpit_box.prop(layer_props, "cockpit_regions", text="Regions")
-            for i, cockpit_region in enumerate(
-                layer_props.cockpit_region[: int(layer_props.cockpit_regions)]
-            ):
-                region_box = cockpit_box.box()
-                region_box.prop(
-                    cockpit_region,
-                    "expanded",
-                    text="Cockpit region %i" % (i + 1),
-                    expand=True,
-                    emboss=False,
-                    icon=("TRIA_DOWN" if cockpit_region.expanded else "TRIA_RIGHT"),
-                )
-
-                if cockpit_region.expanded:
-                    region_box.prop(cockpit_region, "left")
-                    region_box.prop(cockpit_region, "top")
-                    region_split = region_box.split(factor=0.5)
-                    region_split.prop(cockpit_region, "width")
-                    region_split.label(text="= %d" % (2 ** cockpit_region.width))
-                    region_split = region_box.split(factor=0.5)
-                    region_split.prop(cockpit_region, "height")
-                    region_split.label(text="= %d" % (2 ** cockpit_region.height))
-
-        # v1010
-        if version < 1100:
-            # cockpit_lit
-            cockpit_lit_box = cockpit_box.row()
-            cockpit_lit_box.prop(layer_props, "cockpit_lit")
-    # LODs
-    lods_box = layout.box()
-    lods_box.label(text="Levels of Detail")
-    lods_box.prop(layer_props, "lods", text="LODs")
-    num_lods = int(layer_props.lods)
-
-    if num_lods:
-        # Bad naming, I know
-        for i, lod in enumerate(layer_props.lod[:num_lods]):
-            if lod.expanded:
-                expandIcon = "TRIA_DOWN"
-            else:
-                expandIcon = "TRIA_RIGHT"
-
-            lod_box = lods_box.box()
-            lod_box.prop(
-                lod,
-                "expanded",
-                text="Level of detail %i" % (i + 1),
-                expand=True,
-                emboss=False,
-                icon=expandIcon,
-            )
-
-            if lod.expanded:
-                lod_box.prop(lod, "near")
-                lod_box.prop(lod, "far")
-
-    if canHaveDraped:
-        lods_box.prop(layer_props, "lod_draped")
-
-    if canHaveSceneryProps:
-        # Scenery Properties Group
-        scenery_props_group_box = layout.box()
-        scenery_props_group_box.label(text="Scenery Properties")
-
-        layer_group_box = scenery_props_group_box.box()
-        layer_group_box.label(text="Layer Grouping")
-        layer_group_box.prop(layer_props, "layer_group")
-        layer_group_box.prop(layer_props, "layer_group_offset")
-
-        if canHaveDraped:
-            layer_group_box.prop(layer_props, "layer_group_draped")
-            layer_group_box.prop(layer_props, "layer_group_draped_offset")
-
-        # v1000
-        if version >= 1000:
-            # slope_limit
-            slope_box = scenery_props_group_box.box()
-            slope_box.label(text="Slope Properties")
-            slope_box.prop(layer_props, "slope_limit")
-
-            if layer_props.slope_limit == True:
-                slope_box.row().prop(layer_props, "slope_limit_min_pitch")
-                slope_box.row().prop(layer_props, "slope_limit_max_pitch")
-                slope_box.row().prop(layer_props, "slope_limit_min_roll")
-                slope_box.row().prop(layer_props, "slope_limit_max_roll")
-
-            # tilted
-            slope_box.prop(layer_props, "tilted")
-
-            # require surface
-            require_box = scenery_props_group_box.row()
-            require_box.prop(layer_props, "require_surface", text="Require surface")
-
-    # Advanced Options
-    advanced_box = layout.box()
-    advanced_box.label(text="Advanced Options")
-    if version >= 1130:
-        advanced_box.prop(
-            layer_props, "particle_system_file", text="Particle System File"
-        )
-    advanced_box.prop(layer_props, "slungLoadWeight")
-
-    if version >= 1200 and layer_props.export_type in {
-        EXPORT_TYPE_AIRCRAFT,
-        EXPORT_TYPE_COCKPIT,
-    }:
-        rain_box = advanced_box.box()
-        rain_box.label(text="Rain Options")
-        rain_layout(rain_box, layer_props, version)
-
-    advanced_box.prop(layer_props, "debug")
-
-
-def custom_layer_layout(
-    layout: bpy.types.UILayout,
-    has_layer_props: Union[bpy.types.Collection, bpy.types.Object],
-    version: int,
-) -> None:
-    layout.separator()
-    row = layout.row()
-    row.label(text="Custom Properties")
-
-    if isinstance(has_layer_props, bpy.types.Collection):
-        row.operator(
-            "collection.add_xplane_layer_attribute"
-        ).collection_name = has_layer_props.name
-    elif isinstance(has_layer_props, bpy.types.Object):
-        row.operator("object.add_xplane_layer_attribute")
-    else:
-        assert False, f"has_layer_prop is an unknown type {type(has_layer_props)}"
-
-    box = layout.box()
-
-    for i, attr in enumerate(has_layer_props.xplane.layer.customAttributes):
-        subbox = box.box()
-        subrow = subbox.row()
-        subrow.prop(attr, "name")
-        subrow.prop(attr, "value")
-
-        if isinstance(has_layer_props, bpy.types.Collection):
-            remove_op = subrow.operator(
-                "collection.remove_xplane_layer_attribute",
-                text="",
-                emboss=False,
-                icon="X",
-            )
-            remove_op.collection_name = has_layer_props.name
-            remove_op.index = i
-        elif isinstance(has_layer_props, bpy.types.Object):
-            subrow.operator(
-                "object.remove_xplane_layer_attribute", text="", emboss=False, icon="X"
-            ).index = i
-
-        if type in ("MATERIAL", "MESH"):
-            subrow = subbox.row()
-            subrow.prop(attr, "reset")
-
 
 def command_search_window_layout(layout):
     scene = bpy.context.scene
@@ -1266,6 +1310,79 @@ def light_layout(layout: bpy.types.UILayout, obj: bpy.types.Object) -> None:
             layout.row().prop(light_data.xplane, "rgb_override_values")
     layout.row().operator("scene.dev_create_lights_txt_summary")
 
+def draw_decal_prop(layout: bpy.types.UILayout, property_item : XPlaneDecal, index : int, material_name: str = ""):
+    box = layout.box()
+
+    decal_name = "Decal " + str(index + 1) + (" - Normal" if property_item.is_normal else " - Albedo")
+
+    row = box.row()
+    split = row.split(factor=0.7)
+
+    col_left = split.column()
+    row_left = col_left.row(align=True)
+    row_left.alignment = 'LEFT'
+    row_left.prop(property_item, "is_ui_expanded", text=decal_name, icon='TRIA_DOWN' if property_item.is_ui_expanded else 'TRIA_RIGHT', emboss=False)
+    row_left.prop(property_item, "enabled", text="")
+
+    #Copy and paste operators
+    col_right = split.column()
+    row_right = col_right.row(align=True)
+    row_right.alignment = 'RIGHT'
+    btn_copy = row_right.operator("xp_ext.copy_decal", text="", icon='COPYDOWN')
+    btn_copy.decal_index = index
+    btn_copy.material_name = material_name
+    btn_paste = row_right.operator("xp_ext.paste_decal", text="", icon='PASTEDOWN')
+    btn_paste.decal_index = index
+    btn_paste.material_name = material_name
+
+    if property_item.is_ui_expanded:
+        box.prop(property_item, "texture")
+
+        box.separator()
+
+        box.prop(property_item, "projected")
+
+        row = box.row()
+
+        if property_item.projected:
+            row.prop(property_item, "scale_x")
+            row.prop(property_item, "scale_y")
+        else:
+            row.prop(property_item, "tile_ratio")
+
+        if not property_item.is_normal:
+            box.separator()
+            box.prop(property_item, "dither_ratio")
+
+        box.separator()
+
+        row = box.row()
+
+        row.prop(property_item, "strength_constant")
+        row.prop(property_item, "strength_modulator")
+
+        row = box.row()
+
+        row.prop(property_item, "strength_key_red")
+        row.prop(property_item, "strength_key_green")
+        row.prop(property_item, "strength_key_blue")
+        row.prop(property_item, "strength_key_alpha")
+
+        if not property_item.is_normal:
+            box.separator()
+
+            row = box.row()
+
+            row.prop(property_item, "strength2_constant")
+            row.prop(property_item, "strength2_modulator")
+
+            row = box.row()
+
+            row.prop(property_item, "strength2_key_red")
+            row.prop(property_item, "strength2_key_green")
+            row.prop(property_item, "strength2_key_blue")
+            row.prop(property_item, "strength2_key_alpha")
+
 
 # Function: material_layout
 # Draws the UI layout for materials.
@@ -1396,12 +1513,11 @@ def material_layout(layout: UILayout, active_material: bpy.types.Material) -> No
 
 def custom_layout(
     layout: bpy.types.UILayout,
-    has_custom_props: [
-        bpy.types.Armature,
-        bpy.types.Light,
-        bpy.types.Material,
-        bpy.types.Object,
-    ],
+    has_custom_props: 
+        bpy.types.Armature |
+        bpy.types.Light |
+        bpy.types.Material |
+        bpy.types.Object
 ):
     if isinstance(has_custom_props, bpy.types.Material):
         op_type = "material"
@@ -1594,7 +1710,7 @@ def cockpit_layout(
 
 
 def axis_detent_ranges_layout(
-    layout: bpy.types.UILayout, manip: xplane_props.XPlaneManipulatorSettings
+    layout: bpy.types.UILayout, manip: XPlaneManipulatorSettings
 ) -> None:
     layout.separator()
     row = layout.row()

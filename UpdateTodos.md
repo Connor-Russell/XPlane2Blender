@@ -8,4 +8,5 @@ Move all the decal params to every material in the collection
 Move all remaining layers properties to the XPlaneCollectionSettings
 Delete .layer
 ## Material Properties
+blendRatio to blend_ratio
 delete litFactor

@@ -147,6 +147,65 @@ def sanitize_file_path_rel_or_lib(self, context):
 
     update_ui(self, context)
 
+# Function: UpdateLayerGroupsOnVersionChange
+# This is called by the xplane.version property on update, and updates properties that are not compatible with a given version
+# My understanding is Blender SHOULD default to the first value in the enum if the prior value is invalidated, but, it doesn't. So we have this bandaid
+#
+# Properties:
+# self - The property group calling this function
+# context - The current Blender context
+def UpdateLayerGroupsOnVersionChange(self, context):
+    #Iterate over all collections to check for invalidated layer_group properties, and fix them (this happens when using BLENDED and going to pre 12.21)
+    for col in bpy.data.collections:
+        #Check if col.xplane.layer.layer_group exists
+        if col.get("xplane") is not None and col.xplane.get("layer") is not None and col.xplane.layer.get("layer_group") is not None:
+            if col.xplane.layer.layer_group == '':
+                col.xplane.layer.layer_group = LAYER_GROUP_NONE
+
+def get_layer_groups_for_this_version(self, context):
+    # The BLENDED layer group was added in X-Plane 12.21
+    if context and int(context.scene.xplane.version) >= 1221:
+        return [(LAYER_GROUP_NONE,          "None",          "Does not draws this OBJ in any group"),
+        (LAYER_GROUP_TERRAIN,       "Terrain",       "Terrain"),
+        (LAYER_GROUP_BEACHES,       "Beaches",       "Beaches"),
+        (LAYER_GROUP_SHOULDERS,     "Shoulders",     "Shoulders"),
+        (LAYER_GROUP_TAXIWAYS,      "Taxiways",      "Taxiways"),
+        (LAYER_GROUP_RUNWAYS,       "Runways",       "Runways"),
+        (LAYER_GROUP_MARKINGS,      "Markings",      "Markings"),
+        (LAYER_GROUP_AIRPORTS,      "Airports",      "Airports"),
+        (LAYER_GROUP_ROADS,         "Roads",         "Roads"),
+        (LAYER_GROUP_OBJECTS,       "Objects",       "Objects"),
+        (LAYER_GROUP_LIGHT_OBJECTS, "Light Objects", "Light Objects"),
+        (LAYER_GROUP_CARS,          "Cars",          "Cars"),
+        (LAYER_GROUP_BLENDED, "Blended", "Blended")]
+    else:
+        return [(LAYER_GROUP_NONE,          "None",          "Does not draws this OBJ in any group"),
+        (LAYER_GROUP_TERRAIN,       "Terrain",       "Terrain"),
+        (LAYER_GROUP_BEACHES,       "Beaches",       "Beaches"),
+        (LAYER_GROUP_SHOULDERS,     "Shoulders",     "Shoulders"),
+        (LAYER_GROUP_TAXIWAYS,      "Taxiways",      "Taxiways"),
+        (LAYER_GROUP_RUNWAYS,       "Runways",       "Runways"),
+        (LAYER_GROUP_MARKINGS,      "Markings",      "Markings"),
+        (LAYER_GROUP_AIRPORTS,      "Airports",      "Airports"),
+        (LAYER_GROUP_ROADS,         "Roads",         "Roads"),
+        (LAYER_GROUP_OBJECTS,       "Objects",       "Objects"),
+        (LAYER_GROUP_LIGHT_OBJECTS, "Light Objects", "Light Objects"),
+        (LAYER_GROUP_CARS,          "Cars",          "Cars")]
+    
+def get_layer_groups_for_this_version_draped(self, context):
+    return [(LAYER_GROUP_NONE,          "None",          "Does not draws this OBJ in any group"),
+    (LAYER_GROUP_TERRAIN,       "Terrain",       "Terrain"),
+    (LAYER_GROUP_BEACHES,       "Beaches",       "Beaches"),
+    (LAYER_GROUP_SHOULDERS,     "Shoulders",     "Shoulders"),
+    (LAYER_GROUP_TAXIWAYS,      "Taxiways",      "Taxiways"),
+    (LAYER_GROUP_RUNWAYS,       "Runways",       "Runways"),
+    (LAYER_GROUP_MARKINGS,      "Markings",      "Markings"),
+    (LAYER_GROUP_AIRPORTS,      "Airports",      "Airports"),
+    (LAYER_GROUP_ROADS,         "Roads",         "Roads"),
+    (LAYER_GROUP_OBJECTS,       "Objects",       "Objects"),
+    (LAYER_GROUP_LIGHT_OBJECTS, "Light Objects", "Light Objects"),
+    (LAYER_GROUP_CARS,          "Cars",          "Cars")]
+
 #This exists so Blender 4.5+ doesn't show the path as red when it has //
 path_options = {}
 if bpy.app.version >= (4, 5, 0):
@@ -1318,16 +1377,7 @@ class XPlaneBoneSettings(bpy.types.PropertyGroup):
         min = 0
     ) #type: ignore
 
-# Class: XPlaneMaterialSettings
-# Settings for Blender materials.
-#
-# Properties:
-#   enum surfaceType - Surface type as defined in OBJ specs.
-#   bool blend - True if the material uses alpha cutoff.
-#   float blendRatio - Alpha cutoff ratio.
 class XPlaneMaterialSettings(bpy.types.PropertyGroup):
-    
-
     draw: bpy.props.BoolProperty(
         name = "Draw Objects With This Material",
         description = "If turned off, objects with this material won't be drawn",
@@ -1532,7 +1582,7 @@ class XPlaneMaterialSettings(bpy.types.PropertyGroup):
         ]
     ) # type: ignore
 
-    blendRatio: bpy.props.FloatProperty(
+    blend_ratio: bpy.props.FloatProperty(
         name = "Alpha Cutoff Ratio",
         description = "Levels in the texture below this level are rendered as fully transparent and levels above this level are fully opaque",
         default = 0.5,
@@ -1980,6 +2030,21 @@ class XPlanePolygonCollection(bpy.types.PropertyGroup):
     runway_markings_a: bpy.props.FloatProperty(name="Runway Markings Alpha", description="The alpha value for the runway markings", default=1.0) # type: ignore
     runway_markings_texture: bpy.props.StringProperty(name="Runway Markings Texture", description="The texture used for the runway markings", default="", subtype="FILE_PATH") # type: ignore
 
+    layer_group: bpy.props.EnumProperty(
+        name = "Draped Layer Group",
+        description = "Draws draped geometry in a special group",
+        default = "none",
+        items = get_layer_groups_for_this_version_draped
+    ) # type: ignore
+
+    layer_group_offset: bpy.props.IntProperty(
+        name = "Draped Layer Group Offset",
+        description = "Use to fine tune drawing order of draped geometry",
+        default = 0,
+        min = -5,
+        max = 5
+    ) # type: ignore
+
 class XPlaneLineCollection(bpy.types.PropertyGroup):
     mirror: bpy.props.BoolProperty(
         name="Mirror",
@@ -1994,6 +2059,21 @@ class XPlaneLineCollection(bpy.types.PropertyGroup):
         min=0,
         description="If non-zero, X-Plane will stretch/compress the texture to always end on a subdivision. Useful for alignment with end caps",
         update=update_ui
+    ) # type: ignore
+
+    layer_group: bpy.props.EnumProperty(
+        name = "Draped Layer Group",
+        description = "Draws draped geometry in a special group",
+        default = "none",
+        items = get_layer_groups_for_this_version_draped
+    ) # type: ignore
+
+    layer_group_offset: bpy.props.IntProperty(
+        name = "Draped Layer Group Offset",
+        description = "Use to fine tune drawing order of draped geometry",
+        default = 0,
+        min = -5,
+        max = 5
     ) # type: ignore
 
 class XPlaneFacadeFilteredSpellingChoices(bpy.types.PropertyGroup):
@@ -2044,6 +2124,21 @@ class XPlaneFacadeCollection(bpy.types.PropertyGroup):
     #Eligable spelling choices
     spelling_choices: bpy.props.CollectionProperty(type=XPlaneFacadeFilteredSpellingChoices)# type: ignore
 
+    layer_group: bpy.props.EnumProperty(
+        name = "Draped Layer Group",
+        description = "Draws draped geometry in a special group",
+        default = "none",
+        items = get_layer_groups_for_this_version
+    ) # type: ignore
+
+    layer_group_offset: bpy.props.IntProperty(
+        name = "Draped Layer Group Offset",
+        description = "Use to fine tune drawing order of draped geometry",
+        default = 0,
+        min = -5,
+        max = 5
+    ) # type: ignore
+
 class XPlaneAgpCollection(bpy.types.PropertyGroup):
     is_texture_tiling: bpy.props.BoolProperty(name="Enable Texture Tiling", description="Whether the polygon uses texture tiling", default=False) # type: ignore
     texture_tiling_x_pages: bpy.props.IntProperty(name="Texture Tiling X Pages", description="The number of pages in the x direction", default=1) # type: ignore
@@ -2056,6 +2151,21 @@ class XPlaneAgpCollection(bpy.types.PropertyGroup):
 
     render_tiles: bpy.props.BoolProperty(name="Render Tile", description="Whether the tile is rendered", default=True, update=update_ui) # type: ignore
     tile_lod: bpy.props.IntProperty(name="Tile LOD", description="The LOD for the tile", default=20000, min=0) # type: ignore
+
+    layer_group: bpy.props.EnumProperty(
+        name = "Draped Layer Group",
+        description = "Draws draped geometry in a special group",
+        default = "none",
+        items = get_layer_groups_for_this_version_draped
+    ) # type: ignore
+
+    layer_group_offset: bpy.props.IntProperty(
+        name = "Draped Layer Group Offset",
+        description = "Use to fine tune drawing order of draped geometry",
+        default = 0,
+        min = -5,
+        max = 5
+    ) # type: ignore
 
 class XPlaneForestCollection(bpy.types.PropertyGroup):
     pass
@@ -2305,16 +2415,40 @@ class XPlaneObjectCollection(bpy.types.PropertyGroup):
         default = True
     ) # type: ignore
 
+    layer_group: bpy.props.EnumProperty(
+        name = "Layer Group",
+        description = "Draw this OBJ in a special group",
+        default = "none",
+        items = get_layer_groups_for_this_version
+    ) # type: ignore
+
+    layer_group_offset: bpy.props.IntProperty(
+        name = "Layer Group Offset",
+        description = "Use to fine tune drawing order",
+        default = 0,
+        min = -5,
+        max = 5
+    ) # type: ignore
+
+    layer_group_draped: bpy.props.EnumProperty(
+        name = "Draped Layer Group",
+        description = "Draws draped geometry in a special group",
+        default = "none",
+        items = get_layer_groups_for_this_version_draped
+    ) # type: ignore
+
+    layer_group_draped_offset: bpy.props.IntProperty(
+        name = "Draped Layer Group Offset",
+        description = "Use to fine tune drawing order of draped geometry",
+        default = 0,
+        min = -5,
+        max = 5
+    ) # type: ignore
+
     customAttributes: bpy.props.CollectionProperty(
         name = "Custom X-Plane Header Attributes",
         description = "User defined header attributes for the X-Plane file",
         type = XPlaneCustomAttribute
-    ) # type: ignore
-
-    autodetectTextures: bpy.props.BoolProperty(
-        name = "Autodetect Textures",
-        description = "Automaticly determines textures based on materials",
-        default = False
     ) # type: ignore
 
 class XPlaneCollectionSettings(bpy.types.PropertyGroup):
@@ -2332,7 +2466,7 @@ class XPlaneCollectionSettings(bpy.types.PropertyGroup):
 
     debug: bpy.props.BoolProperty(
         name = "Debug This OBJ",
-        description = "If this and Scene > Advanced Settings > Debug are checked, debug information for this OBJ will be written to the export log and the OBJ",
+        description = "If this and Scene > Advanced Settings > Debug are checked, debug information for this file will be written to the export log",
         default = True
     ) #type: ignore
 

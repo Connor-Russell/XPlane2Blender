@@ -11,6 +11,7 @@ from io_xplane2blender import xplane_config, xplane_constants, xplane_helpers
 from io_xplane2blender.xplane_constants import *
 from bpy.app.handlers import persistent # type: ignore
 from . import xplane_materials
+from .helpers import file_utils
 
 """
  #####     ##   ##  ##   ####  ####  ####  #
@@ -95,6 +96,61 @@ def update_ui(self, context):
     if context != None:
         if context.area != None:
             context.area.tag_redraw()
+
+last_sanitize_path_update_was_programmatic = False
+def sanitize_file_path_rel(self, context):
+    #Prevents recursion
+    global last_sanitize_path_update_was_programmatic
+    if last_sanitize_path_update_was_programmatic:
+        last_sanitize_path_update_was_programmatic = False
+        return
+    last_sanitize_path_update_was_programmatic = True
+
+    #Property[0] is the object, [1] is the path. So we need to walk through the RNA elements to get the actual one, since getattr doesn't let us use a . notation :(
+    prop_elems = context.property[1].split(".")
+    cur_prop_elem = getattr(context.property[0], prop_elems[0])
+    for i in range(1, len(prop_elems) - 1):
+        cur_prop_elem = getattr(cur_prop_elem, prop_elems[i])
+    
+    cur_value = getattr(cur_prop_elem, prop_elems[-1])
+    if cur_value == "":
+        setattr(cur_prop_elem, prop_elems[-1], "//")
+    elif cur_value == "//":
+        pass
+    else:
+        setattr(cur_prop_elem, prop_elems[-1], file_utils.to_relative(cur_value, True))
+
+    update_ui(self, context)
+
+def sanitize_file_path_rel_or_lib(self, context):
+    #Prevents recursion
+    global last_sanitize_path_update_was_programmatic
+    if last_sanitize_path_update_was_programmatic:
+        last_sanitize_path_update_was_programmatic = False
+        return
+    last_sanitize_path_update_was_programmatic = True
+
+    #Property[0] is the object, [1] is the path. So we need to walk through the RNA elements to get the actual one, since getattr doesn't let us use a . notation :(
+    prop_elems = context.property[1].split(".")
+    cur_prop_elem = getattr(context.property[0], prop_elems[0])
+    for i in range(1, len(prop_elems) - 1):
+        cur_prop_elem = getattr(cur_prop_elem, prop_elems[i])
+    
+    cur_value = getattr(cur_prop_elem, prop_elems[-1])
+    is_rel = cur_value.starts_with("//")
+    if cur_value == "":
+        setattr(cur_prop_elem, prop_elems[-1], "//")
+    elif cur_value == "//":
+        pass
+    else:
+        setattr(cur_prop_elem, prop_elems[-1], file_utils.to_relative(cur_value, is_rel))
+
+    update_ui(self, context)
+
+#This exists so Blender 4.5+ doesn't show the path as red when it has //
+path_options = {}
+if bpy.app.version >= (4, 5, 0):
+    path_options["options"] = {'PATH_SUPPORTS_BLEND_RELATIVE'}
 
 # Internal variable to enable and disable the ability to update the value of XPlane2Blender's properties
 # DO NOT CHANGE OUTSIDE OF safe_set_version_data!
@@ -467,7 +523,7 @@ class XPlaneDatarefSearchWindow(bpy.types.PropertyGroup):
 
 class XPlaneDecal(bpy.types.PropertyGroup):
     enabled: bpy.props.BoolProperty(name="Enabled", description="Whether this decal slot is enabled", update=update_ui)# type: ignore
-    texture: bpy.props.StringProperty(name="Texture", description="The texture for the decal", default="", subtype='FILE_PATH', update=xplane_materials.operator_wrapped_update_settings)# type: ignore
+    texture: bpy.props.StringProperty(name="Texture", description="The texture for the decal", default="//", subtype='FILE_PATH', **path_options, update=xplane_materials.operator_wrapped_update_settings)# type: ignore
     is_normal: bpy.props.BoolProperty(name="Normal", description="Whether the decal is a normal map decal", default=False, update=update_ui)# type: ignore
 
     projected: bpy.props.BoolProperty(name="Projected", description="Whether the decal's UVs are projected, independant of the base UVs'", update=update_ui)# type: ignore
@@ -511,6 +567,22 @@ class XPlaneFacadeObject(bpy.types.PropertyGroup):
     exportable: bpy.props.BoolProperty(name="Exportable", description="Whether the object is exportable", default=True) # type: ignore
     far_lod: bpy.props.IntProperty(name="Far LOD", description="The far LOD for the object", default=1000)  # type: ignore
     group: bpy.props.IntProperty(name="Group", description="The group for the object. Use for layering transparency") # type: ignore
+    
+    draped: bpy.props.BoolProperty(
+        name="Draped",
+        description="Whether the object is draped",
+        default=False
+    ) # type: ignore
+
+    #This may, or may NOT be a relative file path. If it doesn't start with //, we'll treat it as a library.txt vpath. If it does start with //, we'll resolve it relative to the actual output file path when we export
+    resource: bpy.props.StringProperty(
+        name="Resource",
+        description="The resource for the object",
+        default="",
+        subtype="FILE_PATH",
+        update=sanitize_file_path_rel_or_lib,
+        **path_options
+    ) # type: ignore
 
 class XPlaneAgpObject(bpy.types.PropertyGroup):
     exportable: bpy.props.BoolProperty(name="Exportable", description="Whether the object is exportable", default=False) # type: ignore
@@ -1174,7 +1246,7 @@ class XPlaneObjectSettings(bpy.types.PropertyGroup):
         type = XPlaneCondition
     ) #type: ignore
 
-    facade: bpy.props.PointerProperty(
+    fac: bpy.props.PointerProperty(
         name="Facade",
         description="Facade (.fac) mesh specific properties",
         type=XPlaneFacadeObject
@@ -1187,7 +1259,7 @@ class XPlaneObjectSettings(bpy.types.PropertyGroup):
     #    type=XPlaneForestMesh
     #) #type: ignore
 
-    line: bpy.props.PointerProperty(
+    lin: bpy.props.PointerProperty(
         name="Line",
         description="Line (.lin) Settings",
         type=XPlaneLineObject
@@ -1198,6 +1270,16 @@ class XPlaneObjectSettings(bpy.types.PropertyGroup):
         description="Autogen Point (.agp) Settings",
         type=XPlaneAgpObject
     ) #type: ignore
+
+    # Slightly bad name alert: 
+    attached_obj_preview_resource: bpy.props.StringProperty(
+        name="Preview Resource",
+        description="The preview resource for the attached object",
+        default="//",
+        update=sanitize_file_path,
+        subtype="FILE_PATH",
+        **path_options
+    ) # type: ignore
 
 # Class: XPlaneBoneSettings
 # Settings for Blender bones.
@@ -1256,8 +1338,9 @@ class XPlaneMaterialSettings(bpy.types.PropertyGroup):
     decal_modulator: bpy.props.StringProperty(
         name="Decal Modulator",
         description="The modulator texture for the decals",
-        default="",
+        default="//",
         subtype='FILE_PATH',
+        **path_options,
         update=xplane_materials.operator_wrapped_update_settings
     ) # type: ignore
 
@@ -1280,16 +1363,18 @@ class XPlaneMaterialSettings(bpy.types.PropertyGroup):
     alb_texture: bpy.props.StringProperty(
         name="Albedo Texture",
         description="The albedo texture",
-        default="",
+        default="//",
         subtype='FILE_PATH',
+        **path_options,
         update=xplane_materials.operator_wrapped_update_settings
     ) # type: ignore
 
     material_texture: bpy.props.StringProperty(
         name="Material Texture",
         description="The material texture",
-        default="",
+        default="//",
         subtype='FILE_PATH',
+        **path_options,
         update=xplane_materials.operator_wrapped_update_settings
     ) # type: ignore
 
@@ -1304,8 +1389,9 @@ class XPlaneMaterialSettings(bpy.types.PropertyGroup):
     normal_texture: bpy.props.StringProperty(
         name="Normal Texture",
         description="The normal texture",
-        default="",
+        default="//",
         subtype='FILE_PATH',
+        **path_options,
         update=xplane_materials.operator_wrapped_update_settings
     ) # type: ignore
 
@@ -1320,16 +1406,18 @@ class XPlaneMaterialSettings(bpy.types.PropertyGroup):
     lit_texture: bpy.props.StringProperty(
         name="Lit Texture",
         description="The lit texture",
-        default="",
+        default="//",
         subtype='FILE_PATH',
+        **path_options,
         update=xplane_materials.operator_wrapped_update_settings
     ) # type: ignore
 
     weather_texture: bpy.props.StringProperty(
         name="Weather Texture",
         description="The texture used to control weather effects",
-        default="",
+        default="//",
         subtype='FILE_PATH',
+        **path_options,
         update=xplane_materials.operator_wrapped_update_settings
     ) # type: ignore
 

@@ -61,8 +61,8 @@ def remove_blender_prefix(path):
         str: The path without the Blender prefix.
     """
 
-    if path.startswith("//"):
-        return path[2:]
+    while len(path) > 0 and path[0] == "/":
+        path = path[1:]
     return path
 
 def _is_relative(in_path):

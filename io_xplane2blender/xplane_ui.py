@@ -18,7 +18,6 @@ from .xplane_helpers import is_path_decal_lib
 
 bpy.types.Collection.xplane = XPlaneCollectionSettings() #type: ignore
 
-
 class DATA_PT_xplane(bpy.types.Panel):
     """X-Plane Empty/Light Data Panel"""
 
@@ -36,7 +35,6 @@ class DATA_PT_xplane(bpy.types.Panel):
             custom_layout(self.layout, obj)
         if obj.type == "EMPTY" and version >= 1130:
             empty_layout(self.layout, obj)
-
 
 # Adds X-Plane Material settings to the material tab. Uses <material_layout> and <custom_layout>.
 class MATERIAL_PT_xplane(bpy.types.Panel):
@@ -64,7 +62,6 @@ class MATERIAL_PT_xplane(bpy.types.Panel):
 
             if version >= 1000:
                 conditions_layout(self.layout, obj.active_material)
-
 
 class RENDER_PT_xplane(bpy.types.Panel):
     """X-Plane Render Panel"""
@@ -106,7 +103,6 @@ class RENDER_PT_xplane(bpy.types.Panel):
 
         draw_bake_op(self.layout)
 
-
 # Adds X-Plane Layer settings to the scene tab. Uses <scene_layout>.
 class SCENE_PT_xplane(bpy.types.Panel):
     """X-Plane Scene Panel"""
@@ -123,7 +119,6 @@ class SCENE_PT_xplane(bpy.types.Panel):
     def draw(self, context):
         scene = context.scene
         scene_layout(self.layout, scene)
-
 
 def light_level_layout(
     layout, prop_group_w_ll: bpy.types.PropertyGroup, paired_dataref_prop: str
@@ -167,7 +162,6 @@ def light_level_layout(
             dataref_search_window_layout(box)
 
     ll_box_column.row()
-
 
 class OBJECT_PT_xplane(bpy.types.Panel):
     """XPlane Object Panel"""
@@ -215,7 +209,6 @@ class OBJECT_PT_xplane(bpy.types.Panel):
             if version >= 1000:
                 conditions_layout(self.layout, obj)
 
-
 # Adds X-Plane settings to the bone tab. Uses <animation_layout>.
 class BONE_PT_xplane(bpy.types.Panel):
     """XPlane Bone Panel"""
@@ -240,6 +233,78 @@ class BONE_PT_xplane(bpy.types.Panel):
         weight_layout(self.layout, bone)
         animation_layout(self.layout, bone, True)
 
+def fac_object_layout(layout : bpy.types.UILayout, object : bpy.types.Object):
+    pass
+
+def agp_object_layout(layout : bpy.types.UILayout, object : bpy.types.Object):
+    agp_obj = object.xplane.agp
+
+    layout.prop(agp_obj, "exportable")
+    if agp_obj.exportable:
+        layout.prop(agp_obj, "type")
+        
+        if agp_obj.type == "ATTACHED_OBJ":
+            layout.separator()
+            layout.prop(agp_obj, "attached_obj_resource")
+            layout.prop(agp_obj, "attached_obj_draped")
+            box = layout.box()
+            attached_obj_file_name = os.path.basename(context.object.xp_attached_obj.attached_obj_preview_resource)
+            attached_obj_preview_file_name = os.path.basename(file_utils.to_absolute(context.object.xp_attached_obj.attached_obj_preview_resource))
+            if attached_obj_file_name != attached_obj_preview_file_name and attached_obj_preview_file_name != "":
+                box.label(text="WARNING: Preview resource does not match the main resource.")
+            box.prop(context.object.xp_attached_obj, "attached_obj_preview_resource")
+            row = box.row()
+            row.operator("xp_ext.preview_attached_object", text="Preview Resource")
+            row.operator("xp_ext.clear_attached_object_preview", text="Clear Preview")
+            btn_real_preview = row.operator("xp_ext.preview_attached_object", text="Preview as Real Objects")
+            btn_real_preview.make_real = True
+        elif agp_obj.type == "AUTO_SPLIT_OBJ":
+            layout.separator()
+            layout.label(text="DISCLAIMER:")
+            layout.label(text="More Materials = more .objs = more draw calls = worse performance.")
+            layout.label(text="Use at your own risk!")
+            layout.separator()
+            layout.prop(agp_obj, "autosplit_obj_name")
+            layout.separator()
+            layout.prop(agp_obj, "autosplit_do_fake_lods")
+            if agp_obj.autosplit_do_fake_lods:
+                layout.prop(agp_obj, "autosplit_fake_lods_size")
+            layout.separator()
+            layout.prop(agp_obj, "autosplit_lod_count")
+            if  agp_obj.autosplit_lod_count > 0:
+                row = layout.row()
+                row.prop(agp_obj, "autosplit_lod_1_min")
+                row.prop(agp_obj, "autosplit_lod_1_max")
+            if agp_obj.autosplit_lod_count > 1:
+                row = layout.row()
+                row.prop(agp_obj, "autosplit_lod_2_min")
+                row.prop(agp_obj, "autosplit_lod_2_max")
+            if agp_obj.autosplit_lod_count > 2:
+                row = layout.row()
+                row.prop(agp_obj, "autosplit_lod_3_min")
+                row.prop(agp_obj, "autosplit_lod_3_max")
+            if agp_obj.autosplit_lod_count > 3:
+                row = layout.row()
+                row.prop(agp_obj, "autosplit_lod_4_min")
+                row.prop(agp_obj, "autosplit_lod_4_max")
+        elif agp_obj.type == "FACADE":
+            layout.separator()
+            layout.prop(agp_obj, "facade_resource")
+            layout.prop(agp_obj, "facade_height")
+        elif agp_obj.type == "TREE":
+            layout.separator()
+            layout.prop(agp_obj, "tree_layer")
+        elif agp_obj.type == "TREE_LINE":
+            layout.separator()
+            layout.prop(agp_obj, "tree_layer")
+
+def lin_object_layout(layout : bpy.types.UILayout, object : bpy.types.Object):
+    #Draw the exportable checkbox
+    layout.prop(object.xplane.lin, "exportable")
+
+    #If it's exportable, draw the type selector
+    if object.xplane.lin.exportable:
+        layout.prop(object.xplane.lin, "type")
 
 def empty_layout(layout: bpy.types.UILayout, empty_obj: bpy.types.Object):
     assert empty_obj.type == "EMPTY"
@@ -280,7 +345,6 @@ def empty_layout(layout: bpy.types.UILayout, empty_obj: bpy.types.Object):
         box.label(text="Wheel Settings")
         box.prop(emp.wheel_props, "gear_index")
         box.prop(emp.wheel_props, "wheel_index")
-
 
 def rain_layout(
     layout: bpy.types.UILayout, layer_props: bpy.types.Collection, version: int
@@ -330,7 +394,6 @@ def rain_layout(
             wiper_layout(next_idx)
         else:
             break
-
 
 def fac_spelling_entry_layout(layout: bpy.types.UILayout, entry, collection_name : str, floor_index : int, wall_index : int, spelling_index : int, entry_index : int):
     row = layout.row()
@@ -520,7 +583,7 @@ def fac_floor_layout(layout: bpy.types.UILayout, floor : XPlaneFacadeFloor, coll
         btn_duplicate.collection_name = collection_name
         btn_duplicate.floor_index = floor_index
 
-def obj_layout(
+def obj_collection_layout(
     layout: bpy.types.UILayout,
     col: bpy.types.Collection,
     version: int
@@ -684,7 +747,7 @@ def obj_layout(
 
     advanced_box.prop(obj, "debug")
 
-def agp_layout(
+def agp_collection_layout(
     layout: bpy.types.UILayout,
     col: bpy.types.Collection,
     version: int
@@ -710,7 +773,7 @@ def agp_layout(
         row.prop(agp, "texture_tiling_map_y_res")
         layout.prop(agp, "texture_tiling_map_texture")
 
-def fac_layout(
+def fac_collection_layout(
     layout: bpy.types.UILayout,
     col: bpy.types.Collection,
     version: int
@@ -761,7 +824,7 @@ def fac_layout(
     btn_add.level = "floor"
     btn_add.add = True
 
-def for_layout(
+def for_collection_layout(
     layout: bpy.types.UILayout,
     col: bpy.types.Collection,
     version: int
@@ -769,7 +832,7 @@ def for_layout(
     xplane : XPlaneCollectionSettings = col.__getattribute__("xplane")
     forest : XPlaneLineCollection = xplane.forest
 
-def lin_layout(
+def lin_collection_layout(
     layout: bpy.types.UILayout,
     col: bpy.types.Collection,
     version: int
@@ -780,7 +843,7 @@ def lin_layout(
     layout.prop(lin, "mirror")
     layout.prop(lin, "segment_count")
 
-def pol_layout(
+def pol_collection_layout(
     layout: bpy.types.UILayout,
     col: bpy.types.Collection,
     version: int
@@ -883,19 +946,19 @@ def collection_layer_layout(
         layout.prop(xplane, "export_type")
 
         if xplane.export_type in {EXPORT_TYPE_AIRCRAFT, EXPORT_TYPE_COCKPIT, EXPORT_TYPE_SCENERY, EXPORT_TYPE_INSTANCED_SCENERY}:
-            obj_layout(box, xplane, version)
+            obj_collection_layout(box, xplane, version)
             export_path_dir_layer_layout(box, collection, version)
             custom_layer_layout(box, collection, version)
         elif xplane.export_type == EXPORT_TYPE_AGP:
-            agp_layout(box, xplane, version)
+            agp_collection_layout(box, xplane, version)
         elif xplane.export_type == EXPORT_TYPE_FACADE:
-            fac_layout(box, collection, version)
+            fac_collection_layout(box, collection, version)
         elif xplane.export_type == EXPORT_TYPE_FOREST:
-            for_layout(box, collection, version)
+            for_collection_layout(box, collection, version)
         elif xplane.export_type == EXPORT_TYPE_LINE:
-            lin_layout(box, collection, version)
+            lin_collection_layout(box, collection, version)
         elif xplane.export_type == EXPORT_TYPE_POLYGON:
-            pol_layout(box, collection, version)
+            pol_collection_layout(box, collection, version)
 
 def scene_layout(layout: bpy.types.UILayout, scene: bpy.types.Scene):
     layout.row().operator("scene.export_to_relative_dir", icon="EXPORT")
@@ -977,7 +1040,6 @@ def scene_layout(layout: bpy.types.UILayout, scene: bpy.types.Scene):
 
     scene_dev_layout(layout, scene)
 
-
 def scene_dev_layout(layout: bpy.types.UILayout, scene: bpy.types.Scene):
     dev_box = layout.box()
     dev_box_row = dev_box.column_flow(columns=2, align=True)
@@ -1039,7 +1101,6 @@ def command_search_window_layout(layout):
         "command_search_list_idx",
     )
 
-
 def dataref_search_window_layout(layout):
     scene = bpy.context.scene
     row = layout.row()
@@ -1051,7 +1112,6 @@ def dataref_search_window_layout(layout):
         scene.xplane.dataref_search_window_state,
         "dataref_search_list_idx",
     )
-
 
 def export_path_dir_layer_layout(
     layout: bpy.types.UILayout,
@@ -1094,13 +1154,11 @@ def export_path_dir_layer_layout(
                 icon="X",
             ).index = i
 
-
 def mesh_layout(layout: bpy.types.UILayout, obj: bpy.types.Object) -> None:
     """
     Draws the additional UI layout for Mesh. Currently unused.
     """
     pass
-
 
 def light_layout(layout: bpy.types.UILayout, obj: bpy.types.Object) -> None:
     light_data = obj.data
@@ -1383,7 +1441,6 @@ def draw_decal_prop(layout: bpy.types.UILayout, property_item : XPlaneDecal, ind
             row.prop(property_item, "strength2_key_blue")
             row.prop(property_item, "strength2_key_alpha")
 
-
 # Function: material_layout
 # Draws the UI layout for materials.
 #
@@ -1510,7 +1567,6 @@ def material_layout(layout: UILayout, active_material: bpy.types.Material) -> No
     # instancing effects
     layout.row().prop(active_material.xplane, "poly_os")
 
-
 def custom_layout(
     layout: bpy.types.UILayout,
     has_custom_props: 
@@ -1572,7 +1628,6 @@ def custom_layout(
             subrow.prop(attr, "value")
             subrow = subbox.row()
             subrow.prop(attr, "weight")
-
 
 # Function: animation_layout
 def animation_layout(
@@ -1708,7 +1763,6 @@ def cockpit_layout(
             row.prop(active_material.xplane, "cockpit_feature_use_luminance")
             row.prop(active_material.xplane, "cockpit_feature_luminance")
 
-
 def axis_detent_ranges_layout(
     layout: bpy.types.UILayout, manip: XPlaneManipulatorSettings
 ) -> None:
@@ -1732,7 +1786,6 @@ def axis_detent_ranges_layout(
         row.operator(
             "object.remove_xplane_axis_detent_range", text="", emboss=False, icon="X"
         ).index = i
-
 
 def manipulator_layout(layout: bpy.types.UILayout, obj: bpy.types.Object) -> None:
     row = layout.row()
@@ -1991,7 +2044,6 @@ def manipulator_layout(layout: bpy.types.UILayout, obj: bpy.types.Object) -> Non
         if manipType == MANIP_DRAG_AXIS_DETENT or manipType == MANIP_DRAG_ROTATE_DETENT:
             axis_detent_ranges_layout(box, obj.xplane.manip)
 
-
 def conditions_layout(
     layout: bpy.types.UILayout,
     could_have_conditions: Union[bpy.types.Material, bpy.types.Object],
@@ -2023,7 +2075,6 @@ def conditions_layout(
         subrow = subbox.row()
         subrow.prop(attr, "value")
 
-
 def lod_layout(layout: bpy.types.UILayout, obj: bpy.types.Object) -> None:
     row = layout.row()
     row.prop(obj.xplane, "override_lods")
@@ -2031,13 +2082,11 @@ def lod_layout(layout: bpy.types.UILayout, obj: bpy.types.Object) -> None:
         box = layout.box()
         box.row().prop(obj.xplane, "lod", text="LOD")
 
-
 def weight_layout(layout: bpy.types.UILayout, obj: bpy.types.Object) -> None:
     row = layout.row()
     row.prop(obj.xplane, "override_weight")
     if obj.xplane.override_weight:
         row.prop(obj.xplane, "weight")
-
 
 class XPLANE_UL_CommandSearchList(bpy.types.UIList):
     import io_xplane2blender.xplane_utils.xplane_commands_txt_parser
@@ -2113,7 +2162,6 @@ class XPLANE_UL_CommandSearchList(bpy.types.UIList):
                 flt_flags.append(0 << 0)
 
         return flt_flags, flt_neworder
-
 
 class XPLANE_UL_DatarefSearchList(bpy.types.UIList):
     import io_xplane2blender.xplane_utils.xplane_datarefs_txt_parser
@@ -2193,7 +2241,6 @@ class XPLANE_UL_DatarefSearchList(bpy.types.UIList):
                 flt_flags.append(0 << 0)
 
         return flt_flags, flt_neworder
-
 
 _XPlaneUITypes = (
     BONE_PT_xplane,

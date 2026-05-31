@@ -79,7 +79,7 @@ def operator_wrapped_update_nodes(self = None, context = None):
 #Function to update settings when a property is updated:
 def update_settings(in_material):
     """
-    Sanitizes paths
+    Sanitizes paths and ensures the correct number of decals
     """
 
     xp_mat = in_material.xplane
@@ -139,10 +139,6 @@ def update_settings(in_material):
         else:
             xp_mat.was_programmatically_updated = True
             decal.texture = "//"
-
-    #Set backface culling to TRUE
-    in_material.use_backface_culling = True
-    in_material.show_transparent_back = False
 
 #Internal function to create the node setup for the keying of a decal
 def create_decal_key_nodes(material, x, y, mod_connection, alb_node, key_r, key_g, key_b, key_a, key_base, key_mod):
@@ -341,6 +337,10 @@ def update_nodes(material: bpy.types.Material):
         
         #Set the material to use nodes
         material.use_nodes = True
+
+        #Set backface culling to TRUE
+        material.use_backface_culling = True
+        material.show_transparent_back = False
         
         #Define variables to hold the images
         image_alb = None

@@ -11,6 +11,7 @@ def ggx_distribution_cdf(x, alpha):
 
 def get_effective_gloss(file_path) -> float:
     alpha = 0.5
+    print(f"Loading image from file path: {file_path}")
 
     try:
         image = bpy.data.images.load(file_path)

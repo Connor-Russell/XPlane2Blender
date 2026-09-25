@@ -729,6 +729,8 @@ def layer_layout(
                 normal_decal1_row.prop(layer_props, "normal_decal1_y_scale", text="Y Scale")
             else:
                 normal_decal1_row.prop(layer_props, "normal_decal1_scale", text="Scale")
+
+            decal_box.prop(layer_props, "normal_decal1_effective_gloss", text="Effective Gloss Override")
             
             decal_box.prop(layer_props, "normal_decal1_red_key", text="Red Key")
             decal_box.prop(layer_props, "normal_decal1_green_key", text="Green Key")
@@ -749,6 +751,8 @@ def layer_layout(
                 normal_decal2_row.prop(layer_props, "normal_decal2_y_scale", text="Y Scale")
             else:
                 normal_decal2_row.prop(layer_props, "normal_decal2_scale", text="Scale")
+
+            decal_box.prop(layer_props, "normal_decal2_effective_gloss", text="Effective Gloss Override")
             
             decal_box.prop(layer_props, "normal_decal2_red_key", text="Red Key")
             decal_box.prop(layer_props, "normal_decal2_green_key", text="Green Key")
@@ -770,6 +774,8 @@ def layer_layout(
                     draped_normal_decal1_row.prop(layer_props, "draped_normal_decal1_y_scale", text="Y Scale")
                 else:
                     draped_normal_decal1_row.prop(layer_props, "draped_normal_decal1_scale", text="Scale")
+
+                decal_box.prop(layer_props, "draped_normal_decal1_effective_gloss", text="Effective Gloss Override")
             
                 decal_box.prop(layer_props, "draped_normal_decal1_red_key", text="Red Key")
                 decal_box.prop(layer_props, "draped_normal_decal1_green_key", text="Green Key")
@@ -790,6 +796,8 @@ def layer_layout(
                     draped_normal_decal2_row.prop(layer_props, "draped_normal_decal2_y_scale", text="Y Scale")
                 else:
                     draped_normal_decal2_row.prop(layer_props, "draped_normal_decal2_scale", text="Scale")
+
+                decal_box.prop(layer_props, "draped_normal_decal2_effective_gloss", text="Effective Gloss Override")
 
                 decal_box.prop(layer_props, "draped_normal_decal2_red_key", text="Red Key")
                 decal_box.prop(layer_props, "draped_normal_decal2_green_key", text="Green Key")

@@ -364,7 +364,9 @@ class XPlaneHeader:
                                 self.get_path_relative_to_dir(
                                     self.xplaneFile.options.file_normal_decal1, exportdir
                                 ),
-                                get_effective_gloss(self.xplaneFile.options.file_normal_decal1)
+                                self.xplaneFile.options.normal_decal1_effective_gloss
+                                if self.xplaneFile.options.normal_decal1_effective_gloss > -1
+                                else get_effective_gloss(self.xplaneFile.options.file_normal_decal1)
                             )
                         )
                     else:
@@ -379,7 +381,9 @@ class XPlaneHeader:
                                 self.get_path_relative_to_dir(
                                     self.xplaneFile.options.file_normal_decal1, exportdir
                                 ),
-                                get_effective_gloss(self.xplaneFile.options.file_normal_decal1)
+                                self.xplaneFile.options.normal_decal1_effective_gloss
+                                if self.xplaneFile.options.normal_decal1_effective_gloss > -1
+                                else get_effective_gloss(self.xplaneFile.options.file_normal_decal1)
                             )
                         )     
                 except (OSError, ValueError):
@@ -399,7 +403,9 @@ class XPlaneHeader:
                                 self.get_path_relative_to_dir(
                                     self.xplaneFile.options.file_normal_decal2, exportdir
                                 ),
-                                get_effective_gloss(self.xplaneFile.options.file_normal_decal2)
+                                self.xplaneFile.options.normal_decal2_effective_gloss
+                                if self.xplaneFile.options.normal_decal2_effective_gloss > -1
+                                else get_effective_gloss(self.xplaneFile.options.file_normal_decal2)
                             )
                         )
                     else:
@@ -414,7 +420,9 @@ class XPlaneHeader:
                                 self.get_path_relative_to_dir(
                                     self.xplaneFile.options.file_normal_decal2, exportdir
                                 ),
-                                get_effective_gloss(self.xplaneFile.options.file_normal_decal2)
+                                self.xplaneFile.options.normal_decal2_effective_gloss
+                                if self.xplaneFile.options.normal_decal2_effective_gloss > -1
+                                else get_effective_gloss(self.xplaneFile.options.file_normal_decal2)
                             )
                         )
                 except (OSError, ValueError):
@@ -774,7 +782,9 @@ class XPlaneHeader:
                                     self.get_path_relative_to_dir(
                                         self.xplaneFile.options.file_draped_normal_decal1, exportdir
                                     ),
-                                    get_effective_gloss(self.xplaneFile.options.file_draped_normal_decal1)
+                                    self.xplaneFile.options.draped_normal_decal1_effective_gloss
+                                    if self.xplaneFile.options.draped_normal_decal1_effective_gloss > -1
+                                    else get_effective_gloss(self.xplaneFile.options.file_draped_normal_decal1)
                                 )
                             )
                         else:
@@ -789,7 +799,9 @@ class XPlaneHeader:
                                     self.get_path_relative_to_dir(
                                         self.xplaneFile.options.file_draped_normal_decal1, exportdir
                                     ),
-                                    get_effective_gloss(self.xplaneFile.options.file_draped_normal_decal1)
+                                    self.xplaneFile.options.draped_normal_decal1_effective_gloss
+                                    if self.xplaneFile.options.draped_normal_decal1_effective_gloss > -1
+                                    else get_effective_gloss(self.xplaneFile.options.file_draped_normal_decal1)
                                 )
                             )     
                     except (OSError, ValueError):
@@ -809,7 +821,9 @@ class XPlaneHeader:
                                     self.get_path_relative_to_dir(
                                         self.xplaneFile.options.file_draped_normal_decal2, exportdir
                                     ),
-                                    get_effective_gloss(self.xplaneFile.options.file_draped_normal_decal2)
+                                    self.xplaneFile.options.draped_normal_decal2_effective_gloss
+                                    if self.xplaneFile.options.draped_normal_decal2_effective_gloss > -1
+                                    else get_effective_gloss(self.xplaneFile.options.file_draped_normal_decal2)
                                 )
                             )
                         else:
@@ -824,7 +838,9 @@ class XPlaneHeader:
                                     self.get_path_relative_to_dir(
                                         self.xplaneFile.options.file_draped_normal_decal2, exportdir
                                     ),
-                                    get_effective_gloss(self.xplaneFile.options.file_draped_normal_decal2)
+                                    self.xplaneFile.options.draped_normal_decal2_effective_gloss
+                                    if self.xplaneFile.options.draped_normal_decal2_effective_gloss > -1
+                                    else get_effective_gloss(self.xplaneFile.options.file_draped_normal_decal2)
                                 )
                             )     
                     except (OSError, ValueError):

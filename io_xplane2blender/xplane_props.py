@@ -1657,6 +1657,13 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         precision = 2,
         default = 1.0
     )
+
+    normal_decal1_effective_gloss: bpy.props.FloatProperty(
+            name = "Normal Detail Texture 1 Effective Gloss",
+            description = "Effective gloss for the normal part of the detail texture. Leave -1 to autodetect",
+            precision = 2,
+            default = -1.0
+        )
     
     normal_decal2_scale: bpy.props.FloatProperty(
         name = "Normal Map Detail Texture 2 Scale",
@@ -1685,6 +1692,13 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         default = 1.0
     )
 
+    normal_decal2_effective_gloss: bpy.props.FloatProperty(
+                name = "Normal Detail Texture 1 Effective Gloss",
+                description = "Effective gloss for the normal part of the detail texture. Leave -1 to autodetect",
+                precision = 2,
+                default = -1.0
+            )
+
     draped_normal_decal1_scale: bpy.props.FloatProperty(
         name = "Draped Normal Map Detail Texture 1 Scale",
         description = "Scale of the draped normal map detail texture",
@@ -1711,6 +1725,13 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         precision = 2,
         default = 1.0
     )
+
+    draped_normal_decal1_effective_gloss: bpy.props.FloatProperty(
+                name = "Normal Detail Texture 1 Effective Gloss",
+                description = "Effective gloss for the normal part of the detail texture. Leave -1 to autodetect",
+                precision = 2,
+                default = -1.0
+            )
     
     draped_normal_decal2_scale: bpy.props.FloatProperty(
         name = "Draped Normal Map Detail Texture 2 Scale",
@@ -1738,6 +1759,13 @@ class XPlaneLayer(bpy.types.PropertyGroup):
         precision = 2,
         default = 1.0
     )
+
+    draped_normal_decal2_effective_gloss: bpy.props.FloatProperty(
+                name = "Normal Detail Texture 1 Effective Gloss",
+                description = "Effective gloss for the normal part of the detail texture. Leave -1 to autodetect",
+                precision = 2,
+                default = -1.0
+            )
 
     rgb_decal1_red_key: bpy.props.FloatProperty(name = "RGB Detail Texture 1 Red Key", description = "Red channel key for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)
     rgb_decal1_green_key: bpy.props.FloatProperty(name = "RGB Detail Texture 1 Green Key", description = "Green channel key for the RGB part of the detail texture", step = 0.01, precision = 2, default = 0.0)

@@ -1049,6 +1049,7 @@ class XPlaneHeader:
                   as found in an RNA field
         export_dir - Absolute path to directory of OBJ export
 
+        Paths are normalized lexically; symbolic links are not resolved.
         Raises ValueError or OSError for invalid paths or use of `//` not at the start of the respath
         """
         res_path = res_path.strip()
@@ -1065,7 +1066,6 @@ class XPlaneHeader:
             res_path = Path(bpy.path.abspath(res_path))
         elif res_path.startswith("//") and not bpy.data.filepath:
             res_path = Path(".") / Path(res_path[2:])
-        # 7. Invalid paths are a validation error -> Path.resolve throws OSError
         elif "//" in res_path and not res_path.startswith("//"):
             logger.error(f"'//' is used not at the start of the path '{res_path}'")
             raise ValueError
@@ -1090,16 +1090,14 @@ class XPlaneHeader:
             os.chdir(Path(export_dir))
 
         try:
-            # 1. '.' is CWD -> Path.resolve
-            # 3. All paths are given '/' sperators -> Path.resolve
-            # 4. '..'s are resolved, '.' is a no-op -> Path.resolve
-            # 5. All paths must be relative to the OBJ -> Path.relative_to(does order of args matter)?
-            # 7. Invalid paths are a validation error -> Path.resolve throws OSError
-            # 8. Paths are minimal, "./path/tex.png" is "path/tex.png" -> Path.resolve
-            # 10. Absolute paths are okay as long as we can make a relative path os.path.relpath
-            rel_path = os.path.relpath(res_path.resolve(), export_dir).replace(
-                "\\", "/"
-            )
+            base_dir = Path(bpy.data.filepath).parent if bpy.data.filepath else Path(export_dir)
+            resource = Path(os.path.normpath(base_dir / res_path))
+            export = Path(os.path.normpath(export_dir))
+            common = Path(os.path.commonpath((resource, export)))
+            rel_path = "/".join(
+                ("..",) * len(export.relative_to(common).parts)
+                + resource.relative_to(common).parts
+            ) or "."
         except OSError:
             logger.error(f"Path '{res_path}' is invalid")
             os.chdir(old_cwd)
@@ -1108,8 +1106,6 @@ class XPlaneHeader:
             logger.error(
                 f"Cannot make relative path across disk drives for path '{res_path}'"
             )
-            # 6. If not possible (different drive letter), validation error Path.relative_to ValueError
-            # 7. Invalid paths are a validation error -> Path.resolve throws OSError
             os.chdir(old_cwd)
             raise
         else:
